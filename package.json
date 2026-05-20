@@ -1,0 +1,14 @@
+{
+  "name": "buchuchet",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "pnpm --filter @buchuchet/web dev",
+    "build": "pnpm --filter @buchuchet/web build",
+    "lint": "pnpm -r lint",
+    "db:generate": "pnpm --filter @buchuchet/db prisma generate",
+    "db:migrate": "pnpm --filter @buchuchet/db prisma migrate dev"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

@@ -1,0 +1,269 @@
+// Buchuchet — single source of truth for the relational schema.
+// SQLAlchemy models in apps/api/app/models mirror these tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity ────────────────────────────────────────────────────────────────
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  bin          String?  // Kazakhstan business identifier
+  taxMode      String?  // e.g. "simplified", "general"
+  countryCode  String   @default("KZ")
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  users        User[]
+  clients      Client[]
+  invoices     Invoice[]
+  documents    Document[]
+  workflows    Workflow[]
+  integrations Integration[]
+  approvals    Approval[]
+  auditLogs    AuditLog[]
+  conversations Conversation[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  companyId  String
+  email      String   @unique
+  name       String?
+  role       Role     @default(MEMBER)
+  passwordHash String
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ─── CRM-lite ────────────────────────────────────────────────────────────────
+
+model Client {
+  id         String   @id @default(cuid())
+  companyId  String
+  name       String
+  bin        String?
+  email      String?
+  phone      String?
+  meta       Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+  invoices   Invoice[]
+}
+
+// ─── Documents ───────────────────────────────────────────────────────────────
+
+model Document {
+  id          String        @id @default(cuid())
+  companyId   String
+  type        DocumentType
+  title       String
+  storageKey  String        // S3 key
+  mime        String
+  status      DocumentStatus @default(UPLOADED)
+  ocrText     String?
+  parsed      Json?         // structured extraction
+  createdAt   DateTime      @default(now())
+
+  company     Company       @relation(fields: [companyId], references: [id])
+}
+
+enum DocumentType {
+  INVOICE
+  ACT
+  NAKLADNAYA
+  SCHET_FAKTURA
+  CONTRACT
+  PROPOSAL
+  OTHER
+}
+
+enum DocumentStatus {
+  UPLOADED
+  OCR_PENDING
+  OCR_DONE
+  PARSED
+  FAILED
+}
+
+// ─── Invoicing ───────────────────────────────────────────────────────────────
+
+model Invoice {
+  id         String        @id @default(cuid())
+  companyId  String
+  clientId   String?
+  number     String
+  issueDate  DateTime
+  dueDate    DateTime?
+  currency   String        @default("KZT")
+  subtotal   Decimal       @db.Decimal(14, 2)
+  taxTotal   Decimal       @db.Decimal(14, 2) @default(0)
+  total      Decimal       @db.Decimal(14, 2)
+  status     InvoiceStatus @default(DRAFT)
+  items      Json          // [{name, qty, price, tax}]
+  pdfKey     String?       // S3 key for generated PDF
+  createdAt  DateTime      @default(now())
+
+  company    Company       @relation(fields: [companyId], references: [id])
+  client     Client?       @relation(fields: [clientId], references: [id])
+
+  @@unique([companyId, number])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ─── Workflows ───────────────────────────────────────────────────────────────
+
+model Workflow {
+  id         String   @id @default(cuid())
+  companyId  String
+  name       String
+  trigger    String   // "whatsapp.message" | "schedule" | "manual" | ...
+  graph      Json     // DAG of steps
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+  runs       WorkflowRun[]
+}
+
+model WorkflowRun {
+  id          String          @id @default(cuid())
+  workflowId  String
+  status      WorkflowRunStatus @default(RUNNING)
+  input       Json
+  output      Json?
+  error       String?
+  startedAt   DateTime        @default(now())
+  finishedAt  DateTime?
+
+  workflow    Workflow        @relation(fields: [workflowId], references: [id])
+  steps       WorkflowStepLog[]
+}
+
+enum WorkflowRunStatus {
+  RUNNING
+  WAITING_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model WorkflowStepLog {
+  id      String   @id @default(cuid())
+  runId   String
+  stepKey String
+  status  String
+  output  Json?
+  error   String?
+  at      DateTime @default(now())
+
+  run     WorkflowRun @relation(fields: [runId], references: [id])
+}
+
+// ─── Integrations ────────────────────────────────────────────────────────────
+
+model Integration {
+  id         String   @id @default(cuid())
+  companyId  String
+  provider   String   // "whatsapp" | "telegram" | "bitrix" | "kaspi" | ...
+  status     String   @default("disconnected")
+  config     Json     @default("{}")
+  secrets    Json     @default("{}") // encrypted at rest
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, provider])
+}
+
+// ─── Approvals ───────────────────────────────────────────────────────────────
+
+model Approval {
+  id          String         @id @default(cuid())
+  companyId   String
+  resourceType String        // "invoice" | "workflow_run" | ...
+  resourceId  String
+  action      String         // "send_invoice" | "release_payment" | ...
+  payload     Json
+  status      ApprovalStatus @default(PENDING)
+  requestedBy String?
+  decidedBy   String?
+  decidedAt   DateTime?
+  createdAt   DateTime       @default(now())
+
+  company     Company        @relation(fields: [companyId], references: [id])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  title      String?
+  createdAt  DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+  messages   Message[]
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  role            String   // "user" | "assistant" | "tool" | "system"
+  content         String
+  toolCalls       Json?
+  toolResults     Json?
+  createdAt       DateTime @default(now())
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+}
+
+// ─── Audit ───────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  actorType  String   // "user" | "ai" | "system"
+  actorId    String?
+  action     String
+  resource   String?
+  meta       Json     @default("{}")
+  at         DateTime @default(now())
+
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, at])
+}
