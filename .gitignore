@@ -45,15 +45,14 @@ htmlcov/
 *.db-journal
 *.sqlite
 *.sqlite3
-storage/
-!storage/.gitkeep
+/apps/api/storage/
+!/apps/api/storage/.gitkeep
 uploads/
 tmp/
 .tmp/
 
 # ─── Logs ──────────────────────────────────────────────────────────────
 *.log
-logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
