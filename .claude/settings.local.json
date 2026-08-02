@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(PYTHONIOENCODING=utf-8 /c/Python311/python.exe -c ' *)",
-      "Bash(PYTHONIOENCODING=utf-8 /c/Python311/python.exe scripts/install_commercial_templates.py)"
-    ]
-  }
-}

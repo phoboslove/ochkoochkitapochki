@@ -6,6 +6,9 @@
 *.pem
 *.key
 
+# ─── Claude Code local settings (per-machine, not shared) ──────────────
+.claude/settings.local.json
+
 # ─── Node / Next.js ─────────────────────────────────────────────────────
 node_modules/
 .next/
