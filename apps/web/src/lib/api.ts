@@ -67,7 +67,7 @@ export type InvoiceDetail = Invoice & {
 };
 export type Approval = {
   id: string; resource_type: string; resource_id: string; action: string;
-  summary: string; status: "PENDING" | "APPROVED" | "REJECTED";
+  summary: string; status: "PENDING" | "APPROVED" | "REJECTED" | "BLOCKED";
   requested_by: string; decided_by: string | null; created_at: string;
   payload: Record<string, unknown>;
 };
@@ -77,7 +77,7 @@ export type AuditEntry = {
 };
 export type DocumentItem = {
   id: string; title: string; type: string; mime: string; size: number;
-  status: "UPLOADED" | "OCR_PENDING" | "OCR_DONE" | "PARSED" | "FAILED";
+  status: "UPLOADED" | "OCR_PENDING" | "OCR_DONE" | "PARSED" | "FAILED" | "GENERATED";
   created_at: string; checksum: string | null;
   parsed: Record<string, unknown> | null;
   preview_url: string | null;

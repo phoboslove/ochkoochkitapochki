@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     storage_dir: str = "./storage/local"
     storage_backend: str = "local"  # "local" | "s3"
 
+    # Environment & gating
+    # `app_env` controls dev-only behavior (demo seeding, default credentials).
+    # Set to "production" (or any value other than "dev"/"development") on real
+    # deploys to suppress the demo company/owner. Production demo seed is a
+    # known credentialed account in the repo — must NOT exist on public servers.
+    app_env: str = "dev"
+    enable_demo_seed: bool = True   # auto-disabled when app_env=production
+
     jwt_secret: str = "change-me"
     jwt_alg: str = "HS256"
     jwt_ttl_min: int = 60
@@ -36,7 +44,13 @@ class Settings(BaseSettings):
 
 @lru_cache
 def _get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Hard rule: production environments NEVER ship the demo seed. We toggle
+    # the explicit flag here so a single env var (APP_ENV=production) is
+    # enough to lock down credentials.
+    if s.app_env.lower() in ("production", "prod"):
+        s.enable_demo_seed = False
+    return s
 
 
 settings = _get_settings()

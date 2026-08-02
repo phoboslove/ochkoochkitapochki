@@ -138,6 +138,27 @@ async def get_template(
     return _detail(t)
 
 
+@router.get("/{tpl_id}/reliability")
+async def template_reliability(
+    tpl_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Operational reliability for one template.
+
+    Aggregates the recent render history (last 20) for this template and
+    returns the same numbers the matcher consults — render success rate,
+    fallback rate, average quality, approval-block rate, and a single
+    ``operational_score`` (0–100). Useful for ops UI + debug.
+    """
+    t = await service.get(session, user.company_id, tpl_id)
+    if not t:
+        raise HTTPException(404, "template not found")
+    from app.services.templates.reliability import compute_reliability
+    rel = await compute_reliability(session, template_id=t.id, company_id=user.company_id)
+    return {"template_id": t.id, "name": t.name, "kind": t.kind, **rel.as_dict()}
+
+
 @router.get("/{tpl_id}/versions")
 async def template_versions(
     tpl_id: str,
@@ -822,7 +843,7 @@ async def bulk_ingest(
 
         if body.dry_run:
             from app.services.templates.analyzer import analyze
-            a = analyze(content, mime=_mime_of(fmt), filename=path.name)
+            a = await analyze(content, mime=_mime_of(fmt), filename=path.name)
             entry.update({"kind": a.kind, "language": a.language, "confidence": round(a.confidence, 3),
                           "suggestions": list(a.suggestions.keys())[:6], "notes": a.notes})
             summary["by_kind"][a.kind] = summary["by_kind"].get(a.kind, 0) + 1

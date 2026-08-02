@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from app.services.integrations.telegram.base import (
-    InlineButton, TelegramMessage, TelegramProvider,
+    InlineButton, TelegramDocument, TelegramMessage, TelegramProvider,
 )
 
 
@@ -46,6 +46,39 @@ class BotApiTelegram(TelegramProvider):
     async def answer_callback(self, callback_query_id: str, text: str | None = None) -> dict[str, Any]:
         return await self._post("answerCallbackQuery",
                                 {"callback_query_id": callback_query_id, **({"text": text} if text else {})})
+
+    async def send_document(self, doc: TelegramDocument) -> dict[str, Any]:
+        """sendDocument — Telegram fetches by URL when possible, falls back
+        to multipart upload when raw bytes were supplied."""
+        if doc.url and not doc.content:
+            payload: dict[str, Any] = {
+                "chat_id": doc.chat_id, "document": doc.url,
+                "caption": doc.caption, "parse_mode": doc.parse_mode,
+            }
+            if doc.buttons:
+                payload["reply_markup"] = {"inline_keyboard": [
+                    [_btn_payload(b) for b in row] for row in doc.buttons
+                ]}
+            return await self._post("sendDocument", payload)
+
+        if not doc.content:
+            raise ValueError("TelegramDocument requires url or content")
+
+        # Multipart upload path — used when we have bytes locally and either
+        # the storage backend isn't publicly reachable or we want to bypass
+        # Telegram's URL-fetch (e.g. for local development).
+        data: dict[str, Any] = {
+            "chat_id": doc.chat_id, "caption": doc.caption, "parse_mode": doc.parse_mode,
+        }
+        if doc.buttons:
+            data["reply_markup"] = json.dumps({"inline_keyboard": [
+                [_btn_payload(b) for b in row] for row in doc.buttons
+            ]})
+        files = {"document": (doc.filename, doc.content, "application/octet-stream")}
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(f"{self._base}/sendDocument", data=data, files=files)
+            r.raise_for_status()
+            return r.json()
 
     async def edit_message_reply_markup(self, *, chat_id: str, message_id: int,
                                          buttons: list[list[InlineButton]] | None) -> dict[str, Any]:
@@ -94,8 +127,14 @@ class BotApiTelegram(TelegramProvider):
         return out
 
     def verify_secret(self, header_token: str | None) -> bool:
+        # Deny-by-default: a real bot with no configured webhook secret
+        # is a half-finished integration. Refusing webhook traffic is the
+        # safe failure mode — the operator sees nothing arriving and
+        # reconnects via the UI (which now always generates a secret).
         if not self.webhook_secret:
-            return True
+            return False
+        if not header_token:
+            return False
         return header_token == self.webhook_secret
 
     # ── HTTP plumbing with retries ─────────────────────────────────────────

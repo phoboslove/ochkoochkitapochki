@@ -9,8 +9,10 @@ import { Toaster } from "@/components/Toaster";
 import { AlertWatcher } from "@/components/AlertWatcher";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { BetaBanner } from "@/components/BetaBanner";
 import { SupportWidget } from "@/components/SupportWidget";
 import { WorkspaceEffects } from "@/lib/workspace";
+import { I18nRehydrate } from "@/lib/i18n";
 import { useOnboarding } from "@/lib/hooks";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -28,7 +30,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <WorkspaceEffects />
+      <I18nRehydrate />
       <div className="flex h-screen w-screen overflow-hidden flex-col bg-background">
+        <BetaBanner />
         <OfflineBanner />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />

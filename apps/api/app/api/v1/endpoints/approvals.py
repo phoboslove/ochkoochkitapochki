@@ -4,9 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user, require_admin
+from app.core.ratelimit import rate_limit
 from app.services.approvals.service import ApprovalService
 
 router = APIRouter()
+
+_decide_limit = rate_limit("approvals.decide", limit=60, window_s=60)
 service = ApprovalService()
 
 
@@ -33,7 +36,7 @@ async def list_approvals(
     return [_serialize(a) for a in rows]
 
 
-@router.post("/{approval_id}/decide")
+@router.post("/{approval_id}/decide", dependencies=[Depends(_decide_limit)])
 async def decide(
     approval_id: str, body: DecideIn,
     user: CurrentUser = Depends(require_admin),

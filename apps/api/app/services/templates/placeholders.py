@@ -2,7 +2,16 @@
 
 The renderer expects a `BusinessContext`-shaped context dict. Every template
 field (DOCX bookmark, XLSX cell, HTML token) maps to one of these canonical
-keys. Synonyms cover RU/KZ/EN accounting vocabulary.
+keys.
+
+``SYNONYMS`` + ``suggest()`` below are substring matching over a fixed
+RU/KZ/EN vocabulary. They used to be the *only* way labels got mapped to
+canonical fields; that job now belongs to
+``label_matcher.match_labels_batch()``, which tries semantic embeddings
+first (any language, not just the ones hardcoded here) and only falls back
+to this substring table when no AI key is configured or the embeddings call
+fails. Kept here — not deleted — because it's the fallback everything else
+depends on.
 """
 from __future__ import annotations
 

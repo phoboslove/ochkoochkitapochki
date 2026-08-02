@@ -106,6 +106,35 @@ class ApprovalService:
         approval = await session.get(Approval, approval_id)
         if not approval:
             raise ValueError("approval not found")
+
+        # ── Defense-in-depth tenant check (CRITICAL #2) ──────────────────
+        # The HTTP endpoint already filters on company_id, and the Telegram
+        # callback handler also checks before invoking us — but the service
+        # is the public surface for ANY caller (workflow runners, internal
+        # jobs, future endpoints). One missed call site = full cross-tenant
+        # bypass. Enforce here so the invariant holds independent of the
+        # caller's diligence.
+        from app.db.models import User as _User
+        decider = await session.get(_User, decided_by)
+        if decider and decider.company_id != approval.company_id:
+            await self.audit.record(
+                session, company_id=approval.company_id, actor_type="security",
+                actor_id=decided_by, action="approval.cross_tenant_blocked",
+                resource=approval.id,
+                meta={"approval_company": approval.company_id,
+                       "actor_company": decider.company_id},
+            )
+            raise PermissionError(
+                "approval belongs to a different company — cross-tenant action refused",
+            )
+
+        if approval.status == "BLOCKED":
+            # Quality-gated; operator must regenerate / fix the document first.
+            raise ValueError(
+                "approval is BLOCKED by render-quality gate — "
+                f"score={approval.payload.get('quality_score')}, "
+                f"issues={len(approval.payload.get('blocking_issues') or [])}"
+            )
         if approval.status != "PENDING":
             return approval
 

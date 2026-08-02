@@ -63,6 +63,15 @@ async def match_best(
     needs_review = [t for t in in_scope if t.status != "VERIFIED"]
     candidates  = [t for t in in_scope if t.status == "VERIFIED"]
 
+    # Operational reliability — additive bias toward templates that have
+    # *actually* rendered successfully in production. Computed per-call across
+    # the small VERIFIED candidate set; cold-start templates contribute 0.
+    from app.services.templates.reliability import reliability_bonus_map
+    reliability = await reliability_bonus_map(
+        session, company_id=company_id,
+        template_ids=[t.id for t in candidates],
+    )
+
     scored: list[CandidateScore] = []
     for t in candidates:
         b: dict[str, int] = {}
@@ -76,6 +85,12 @@ async def match_best(
         s += 12; b["verified"] = 12
         if (t.confidence or 0) >= 0.8:                    s += 5;  b["confidence"] = 5
         if t.format in ("doc", "xls"):                    s -= 50; b["legacy_penalty"] = -50
+
+        rel_bonus, op_score = reliability.get(t.id, (0, 70))
+        if rel_bonus:
+            s += rel_bonus
+            b["operational"] = rel_bonus
+        b["operational_score"] = op_score
 
         matched_terms: list[str] = []
         if query:
@@ -110,6 +125,11 @@ async def match_best(
     if top.matched_terms:             bits.append(f"semantic terms: {', '.join(top.matched_terms[:4])}")
     if top.breakdown.get("usage"):    bits.append(f"used {_success_count(top.template)}× successfully")
     if top.breakdown.get("confidence"): bits.append("high mapping confidence")
+    op_bonus = top.breakdown.get("operational")
+    if op_bonus and op_bonus > 0:
+        bits.append(f"high operational reliability ({top.breakdown.get('operational_score')}/100)")
+    elif op_bonus and op_bonus < 0:
+        bits.append(f"low operational reliability ({top.breakdown.get('operational_score')}/100)")
 
     reason = (
         f"Selected '{top.template.name}' · score {top.score} — "

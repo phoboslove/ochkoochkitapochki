@@ -78,6 +78,16 @@ async def init_and_seed() -> None:
         await conn.run_sync(Base.metadata.create_all)
         await _additive_migrations(conn)
 
+    # Demo seed is dev-only. On production (APP_ENV=production) we never
+    # create the credentialed demo@buchuchet.io account — its password is
+    # in the repo, so creating it on a public server is a known breach.
+    from app.core.config import settings
+    if not settings.enable_demo_seed:
+        from app.core.logging import log
+        log.info("demo_seed_skipped", reason="enable_demo_seed=False",
+                 app_env=settings.app_env)
+        return
+
     async with SessionLocal() as s:
         if await s.scalar(select(models.Company).where(models.Company.id == DEMO_COMPANY_ID)):
             return

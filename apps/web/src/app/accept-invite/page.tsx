@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, tokenStore } from "@/lib/api";
 
-export default function AcceptInvitePage() {
+export default function AcceptInvitePageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+      <AcceptInvitePage />
+    </Suspense>
+  );
+}
+
+function AcceptInvitePage() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get("token") ?? "";

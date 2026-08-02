@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +33,17 @@ const GREETING: Msg = {
   at: Date.now(),
 };
 
-export default function AssistantPage() {
+export default function AssistantPageWrapper() {
+  // Wrap useSearchParams() in Suspense so the page is statically prerenderable
+  // (Next.js 15 strictly requires this and fails the build otherwise).
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+      <AssistantPage />
+    </Suspense>
+  );
+}
+
+function AssistantPage() {
   const router = useRouter();
   const params = useSearchParams();
   const urlConvId = params.get("c");
@@ -75,6 +85,18 @@ export default function AssistantPage() {
     setConversationId(id);
     router.replace(`/assistant?c=${id}`);
   };
+
+  // Allow nested action cards (e.g. ProposalCard's "Подтвердить" button) to
+  // post a follow-up message through the same send pipeline — keeps the
+  // single source of truth without prop drilling.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === "string" && detail.trim()) send(detail);
+    };
+    window.addEventListener("assistant:send", handler);
+    return () => window.removeEventListener("assistant:send", handler);
+  });
 
   const send = (text: string) => {
     if (!text.trim() || chat.isPending) return;

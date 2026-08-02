@@ -12,57 +12,60 @@ import {
 import { cn } from "@/lib/utils";
 import { useApprovals } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
+import { useT } from "@/lib/i18n";
+import type { TranslationKey } from "@/lib/translations";
 
 type NavItem = {
   href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  labelKey: TranslationKey;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   badge?: "approvals";
 };
 
-type NavGroup = { key: string; label: string; items: NavItem[] };
+type NavGroup = { key: string; labelKey: TranslationKey; items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    key: "operations", label: "Operations",
+    key: "operations", labelKey: "nav.group.operations",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/invoices",  label: "Invoices",  icon: Receipt },
-      { href: "/documents", label: "Documents", icon: FileText },
-      { href: "/approvals", label: "Approvals", icon: ShieldCheck, badge: "approvals" },
+      { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+      { href: "/invoices",  labelKey: "nav.invoices",  icon: Receipt },
+      { href: "/documents", labelKey: "nav.documents", icon: FileText },
+      { href: "/approvals", labelKey: "nav.approvals", icon: ShieldCheck, badge: "approvals" },
     ],
   },
   {
-    key: "automation", label: "Automation",
+    key: "automation", labelKey: "nav.group.automation",
     items: [
-      { href: "/assistant", label: "AI Assistant", icon: Sparkles },
-      { href: "/workflows", label: "Workflows",    icon: Workflow },
-      { href: "/recovery",  label: "Recovery",     icon: LifeBuoy },
+      { href: "/assistant", labelKey: "nav.assistant", icon: Sparkles },
+      { href: "/workflows", labelKey: "nav.workflows", icon: Workflow },
+      { href: "/recovery",  labelKey: "nav.recovery",  icon: LifeBuoy },
     ],
   },
   {
-    key: "management", label: "Management",
+    key: "management", labelKey: "nav.group.management",
     items: [
-      { href: "/clients",   label: "Clients",  icon: Users },
-      { href: "/team",      label: "Team",     icon: UserPlus },
-      { href: "/reports",   label: "Reports",  icon: BarChart3 },
-      { href: "/settings",  label: "Business", icon: Building2 },
-      { href: "/onboarding",label: "Setup guide", icon: Rocket },
+      { href: "/clients",   labelKey: "nav.clients",    icon: Users },
+      { href: "/team",      labelKey: "nav.team",       icon: UserPlus },
+      { href: "/reports",   labelKey: "nav.reports",    icon: BarChart3 },
+      { href: "/settings",  labelKey: "nav.settings",   icon: Building2 },
+      { href: "/onboarding",labelKey: "nav.onboarding", icon: Rocket },
     ],
   },
   {
-    key: "system", label: "System",
+    key: "system", labelKey: "nav.group.system",
     items: [
-      { href: "/integrations", label: "Integrations", icon: Plug },
-      { href: "/activity",     label: "Activity",     icon: Activity },
-      { href: "/ops",          label: "Operations",   icon: Gauge },
-      { href: "/logs",         label: "Logs",         icon: ScrollText },
+      { href: "/integrations", labelKey: "nav.integrations", icon: Plug },
+      { href: "/activity",     labelKey: "nav.activity",     icon: Activity },
+      { href: "/ops",          labelKey: "nav.ops",          icon: Gauge },
+      { href: "/logs",         labelKey: "nav.logs",         icon: ScrollText },
     ],
   },
 ];
 
 export function Sidebar() {
   const path = usePathname();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const collapsed = useWorkspace((s) => s.sidebarCollapsed);
   const toggleCollapsed = useWorkspace((s) => s.toggleCollapsed);
@@ -84,12 +87,12 @@ export function Sidebar() {
           <>
             <div className="leading-tight">
               <div className="text-[13px] font-semibold">Buchuchet</div>
-              <div className="text-[10px] text-muted-foreground -mt-0.5">Backoffice OS</div>
+              <div className="text-[10px] text-muted-foreground -mt-0.5">{t("sidebar.brand_tagline")}</div>
             </div>
             <button
               onClick={toggleCollapsed}
               className="ml-auto hidden md:inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-              title="Collapse sidebar"
+              title={t("sidebar.collapse")}
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
             </button>
@@ -99,7 +102,7 @@ export function Sidebar() {
           <button
             onClick={toggleCollapsed}
             className="absolute right-1 top-3 h-6 w-6 grid place-items-center rounded-md text-muted-foreground hover:bg-accent"
-            title="Expand sidebar"
+            title={t("sidebar.expand")}
           >
             <PanelLeftOpen className="h-3.5 w-3.5" />
           </button>
@@ -120,7 +123,7 @@ export function Sidebar() {
                   className="w-full flex items-center gap-1 px-2 mb-1 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 >
                   <ChevronDown className={cn("h-3 w-3 transition-transform", !expanded && "-rotate-90")} />
-                  {g.label}
+                  {t(g.labelKey)}
                 </button>
               )}
               {(expanded || collapsed) && (
@@ -133,7 +136,7 @@ export function Sidebar() {
                         <Link
                           href={item.href}
                           onClick={() => setOpen(false)}
-                          title={collapsed ? item.label : undefined}
+                          title={collapsed ? t(item.labelKey) : undefined}
                           className={cn(
                             "group relative flex items-center gap-2.5 rounded-md text-[13px] transition-all duration-150",
                             collapsed ? "justify-center h-8 w-8 mx-auto" : "px-2.5 py-1.5",
@@ -154,7 +157,7 @@ export function Sidebar() {
                             "h-4 w-4 shrink-0 transition-colors",
                             active ? "text-[hsl(var(--brand))]" : "group-hover:text-foreground",
                           )} strokeWidth={1.75} />
-                          {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                          {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
                           {!collapsed && item.badge === "approvals" && pendingCount > 0 && (
                             <span className="rounded-md bg-warning-bg text-[hsl(var(--warning))] border border-[hsl(var(--warning)/0.3)] px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
                               {pendingCount}

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user
-from app.db.models import AuditLog, Document, Invoice
+from app.db.models import Approval, AuditLog, Document, Invoice
 
 router = APIRouter()
 
@@ -55,6 +55,60 @@ async def list_failures(
             "resource": d.id, "at": d.created_at.isoformat(),
             "meta": {"title": d.title, **(d.meta or {})},
             "actions": ["retry_ocr", "edit_fields", "escalate"],
+        })
+
+    # BLOCKED approvals — quality gate refused to allow sending.
+    blocked = await session.scalars(
+        select(Approval).where(
+            Approval.company_id == user.company_id, Approval.status == "BLOCKED",
+        ),
+    )
+    for a in blocked:
+        payload = a.payload or {}
+        out.append({
+            "id": f"apr:{a.id}", "kind": "approval", "action": "approval.blocked",
+            "resource": a.resource_id, "at": a.created_at.isoformat(),
+            "meta": {
+                "summary": a.summary,
+                "quality_score":   payload.get("quality_score"),
+                "quality_status":  payload.get("quality_status"),
+                "blocking_issues": payload.get("blocking_issues") or [],
+                "kind":            payload.get("kind"),
+                "number":          payload.get("number"),
+                "client":          payload.get("client"),
+                "suggested_fix":   "Regenerate the document after fixing the missing "
+                                    "fields, then re-submit for approval.",
+            },
+            "actions": ["regenerate", "open_document", "escalate"],
+        })
+
+    # Generated documents whose quality QA marked them blocked — surfaced
+    # even if the approval object hasn't been created yet.
+    generated_bad = await session.scalars(
+        select(Document).where(
+            Document.company_id == user.company_id,
+            Document.status == "GENERATED",
+        ),
+    )
+    for d in generated_bad:
+        q = ((d.parsed or {}).get("quality") or {})
+        if q.get("status") != "blocked":
+            continue
+        out.append({
+            "id": f"gen:{d.id}", "kind": "generated_document",
+            "action": "document.quality_blocked",
+            "resource": d.id, "at": d.created_at.isoformat(),
+            "meta": {
+                "title": d.title,
+                "quality_score":  q.get("score"),
+                "quality_status": q.get("status"),
+                "blocking_issues": [i for i in (q.get("issues") or [])
+                                     if i.get("severity") == "error"],
+                "fallback": (d.parsed or {}).get("fallback"),
+                "suggested_fix": "Regenerate the document — provide missing client BIN / total "
+                                  "and a VERIFIED template for this document kind.",
+            },
+            "actions": ["regenerate", "open_document", "escalate"],
         })
 
     overdue_invs = await session.scalars(

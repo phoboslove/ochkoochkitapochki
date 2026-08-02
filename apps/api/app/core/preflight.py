@@ -22,6 +22,7 @@ def _err(msg: str) -> CheckResult:   return ("error", msg)
 
 def env_checks() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    is_production = settings.app_env.lower() in ("production", "prod")
 
     def add(name: str, level: str, message: str) -> None:
         out.append({"check": name, "level": level, "message": message})
@@ -31,6 +32,18 @@ def env_checks() -> list[dict[str, Any]]:
         add("jwt_secret", "error", "JWT_SECRET is unset or default — rotate before exposing publicly.")
     else:
         add("jwt_secret", "ok", "JWT secret configured.")
+
+    # Demo seed gating
+    if settings.enable_demo_seed and is_production:
+        add("demo_seed", "error",
+            "APP_ENV=production but enable_demo_seed=True — refusing to "
+            "spawn the demo@buchuchet.io account on a public deploy.")
+    elif settings.enable_demo_seed:
+        add("demo_seed", "warn",
+            "Demo seed is ON. Set APP_ENV=production OR enable_demo_seed=False "
+            "before deploying to a public server.")
+    else:
+        add("demo_seed", "ok", "Demo seed disabled.")
 
     # Database — report the *active* engine, not just the raw env var.
     from app.core.db import engine_summary

@@ -4,6 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user
+from app.core.ratelimit import rate_limit
+
+# Document generation hits LibreOffice + writes to storage — 30/min/IP is
+# more than any operator will ever need and still cheap to absorb.
+_generate_limit = rate_limit("documents.generate", limit=30, window_s=60)
+_upload_limit   = rate_limit("documents.upload",   limit=30, window_s=60)
 from app.db.models import Document
 from app.services.audit.logger import AuditLogger
 from app.services.documents.service import DocumentService
@@ -80,7 +86,77 @@ async def retry_doc(
     return _serialize(d)
 
 
-@router.post("/upload")
+class GenerateIn(BaseModel):
+    kind: str
+    prompt: str | None = None
+    client_name: str | None = None
+    total: float | None = None
+    currency: str = "KZT"
+    item_description: str | None = None
+    qty: float = 1
+    vat_percent: float | None = None
+    notes: str | None = None
+
+
+@router.post("/generate", dependencies=[Depends(_generate_limit)])
+async def generate_document(
+    body: GenerateIn,
+    user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Direct (non-AI) entrypoint to the generation pipeline.
+
+    Used by the templates UI 'Generate' button and integration tests; the AI
+    assistant reaches the same code via the `generate_document` tool.
+    """
+    from app.services.documents.generation import GenerationPipeline, SUPPORTED_KINDS
+    kind = (body.kind or "").strip().lower()
+    if kind not in SUPPORTED_KINDS:
+        raise HTTPException(400, f"unsupported kind: {body.kind!r}; pick one of {sorted(SUPPORTED_KINDS)}")
+    overrides = {
+        "client_name": body.client_name, "total": body.total, "currency": body.currency,
+        "item_description": body.item_description, "qty": body.qty,
+        "vat_percent": body.vat_percent, "notes": body.notes,
+    }
+    overrides = {k: v for k, v in overrides.items() if v not in (None, "")}
+    try:
+        result = await GenerationPipeline().generate(
+            session, company_id=user.company_id, actor_id=user.id,
+            actor_type="user", kind=kind, prompt=body.prompt, overrides=overrides,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    await session.commit()
+    return {
+        "document_id":   result.document_id,
+        "kind":          result.kind,
+        "number":        result.document_number,
+        "template_id":      result.template_id,
+        "template_name":    result.template_name,
+        "template_verified": result.template_verified,
+        "template_operational_score": result.template_operational_score,
+        "match_reason":  result.match_reason,
+        "match_score":   result.match_score,
+        "pdf_url":       result.pdf_url,
+        "docx_url":      result.docx_url,
+        "primary_url":   result.primary_url,
+        "approval_id":     result.approval_id,
+        "approval_status": result.approval_status,
+        "render_ms":       result.render_duration_ms,
+        "quality":         result.quality,
+        "quality_status":  (result.quality or {}).get("status"),
+        "quality_score":   (result.quality or {}).get("score"),
+        "fallback_used":   result.fallback_used,
+        "fallback_reason": result.fallback_reason,
+        "fallback_engine": result.fallback_engine,
+        "adaptation_applied": result.adaptation_applied,
+        "adaptation_anchors_injected": result.adaptation_anchors_injected,
+        "diagnostics":     result.diagnostics,
+        "warnings":        result.warnings,
+    }
+
+
+@router.post("/upload", dependencies=[Depends(_upload_limit)])
 async def upload(
     file: UploadFile = File(...),
     doc_type: str = Form(default="OTHER"),

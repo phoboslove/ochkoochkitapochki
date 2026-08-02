@@ -230,6 +230,40 @@ class AuditLog(Base):
     at:         Mapped[datetime] = mapped_column(DateTime, default=_now, index=True)
 
 
+class PendingProposal(Base):
+    """A document-generation proposal waiting for user confirmation.
+
+    Lifecycle:
+      AWAITING_CONFIRMATION → GENERATING → COMPLETED
+                            ↘ CANCELLED
+                            ↘ EXPIRED (TTL passed, lazily checked)
+
+    The state machine is the operational contract: only one
+    AWAITING_CONFIRMATION proposal can exist per (company, user, channel,
+    chat_id) tuple at a time; a fresh propose_document call atomically
+    expires the prior one. Transitions to GENERATING are atomic
+    (UPDATE...WHERE status=AWAITING_CONFIRMATION) so repeated "да"
+    messages can only fire generation once.
+    """
+    __tablename__ = "pending_proposals"
+    id:           Mapped[str] = mapped_column(String, primary_key=True)
+    company_id:   Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    user_id:      Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    channel:      Mapped[str] = mapped_column(String, default="telegram", index=True)  # telegram|web
+    chat_id:      Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    conversation_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    kind:         Mapped[str] = mapped_column(String)
+    status:       Mapped[str] = mapped_column(
+        String, default="AWAITING_CONFIRMATION", index=True,
+    )  # AWAITING_CONFIRMATION|GENERATING|COMPLETED|CANCELLED|EXPIRED
+    payload:      Mapped[dict] = mapped_column(JSON, default=dict)
+    template_id:  Mapped[str | None] = mapped_column(String, nullable=True)
+    document_id:  Mapped[str | None] = mapped_column(String, nullable=True)  # filled after generation
+    expires_at:   Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at:   Mapped[datetime] = mapped_column(DateTime, default=_now)
+    decided_at:   Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
     id:         Mapped[str] = mapped_column(String, primary_key=True)

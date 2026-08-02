@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,13 @@ export default function LoginPage() {
                 {login.isPending ? "Signing in…" : "Sign in"}
               </Button>
             </form>
+
+            <div className="mt-5 pt-4 border-t border-border text-center text-[12px] text-muted-foreground">
+              Нет аккаунта?{" "}
+              <Link href="/register" className="text-foreground hover:underline">
+                Зарегистрироваться
+              </Link>
+            </div>
           </CardContent>
         </Card>
         <p className="mt-4 text-center text-[11px] text-muted-foreground">

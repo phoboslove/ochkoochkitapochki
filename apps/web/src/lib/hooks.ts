@@ -171,6 +171,34 @@ export function useTelegramDisconnect() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["telegram", "me"] }),
   });
 }
+// Bot-level (per-workspace) connect/disconnect — distinct from the per-user
+// link helpers above. `useTelegramLink` binds an individual operator's
+// Telegram chat to their User row; these manage the bot itself.
+export function useTelegramBotConnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { bot_token: string; public_webhook_base?: string }) =>
+      api.post<{
+        ok: boolean; bot_username: string; bot_id: number;
+        webhook_url: string | null; webhook_registered: boolean;
+        webhook_error: string | null;
+      }>("/telegram/bot/connect", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["telegram", "me"] });
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
+  });
+}
+export function useTelegramBotDisconnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ ok: boolean; webhook_deleted: boolean }>("/telegram/bot/disconnect"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["telegram", "me"] });
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
+  });
+}
 export function useUpdateNotificationPrefs() {
   const qc = useQueryClient();
   return useMutation({
@@ -184,6 +212,22 @@ export function useLogin() {
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       api.postNoAuth<{ access_token: string; user: Me }>("/auth/login", { email, password }),
+    onSuccess: (r) => tokenStore.set(r.access_token),
+  });
+}
+
+export type RegisterInput = {
+  company_name: string;
+  email: string;
+  password: string;
+  name?: string;
+  bin?: string;
+};
+
+export function useRegister() {
+  return useMutation({
+    mutationFn: (body: RegisterInput) =>
+      api.postNoAuth<{ access_token: string; user: Me }>("/auth/register", body),
     onSuccess: (r) => tokenStore.set(r.access_token),
   });
 }

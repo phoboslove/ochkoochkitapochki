@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Building2, Calculator, Palette, FileType2, ShieldCheck, Bell, Plug,
-  BookOpen, Lock,
+  BookOpen, Lock, Languages,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,46 +12,51 @@ import { SaveIndicator } from "@/components/settings/SaveIndicator";
 import { KnowledgeBase } from "@/components/settings/KnowledgeBase";
 import { TemplateManager } from "@/components/TemplateManager";
 import { TelegramPanel } from "@/components/TelegramPanel";
+import { LanguagePicker } from "@/components/LanguagePicker";
 import { useBusinessContext, useSectionEditor } from "@/lib/settings";
 import { useUploadLogo } from "@/lib/hooks";
+import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import type { TranslationKey } from "@/lib/translations";
 
 const TABS = [
-  { key: "company",       label: "Company",       icon: Building2 },
-  { key: "accounting",    label: "Accounting",    icon: Calculator },
-  { key: "branding",      label: "Branding",      icon: Palette },
-  { key: "templates",     label: "Templates",     icon: FileType2 },
-  { key: "approvals",     label: "Approvals",     icon: ShieldCheck },
-  { key: "notifications", label: "Notifications", icon: Bell },
-  { key: "integrations",  label: "Integrations",  icon: Plug },
-  { key: "knowledge",     label: "Knowledge",     icon: BookOpen },
-  { key: "security",      label: "Security",      icon: Lock },
-] as const;
+  { key: "company",       labelKey: "settings.tab.company",       icon: Building2 },
+  { key: "accounting",    labelKey: "settings.tab.accounting",    icon: Calculator },
+  { key: "branding",      labelKey: "settings.tab.branding",      icon: Palette },
+  { key: "templates",     labelKey: "settings.tab.templates",     icon: FileType2 },
+  { key: "approvals",     labelKey: "settings.tab.approvals",     icon: ShieldCheck },
+  { key: "notifications", labelKey: "settings.tab.notifications", icon: Bell },
+  { key: "integrations",  labelKey: "settings.tab.integrations",  icon: Plug },
+  { key: "knowledge",     labelKey: "settings.tab.knowledge",     icon: BookOpen },
+  { key: "language",      labelKey: "settings.tab.language",      icon: Languages },
+  { key: "security",      labelKey: "settings.tab.security",      icon: Lock },
+] as const satisfies readonly { key: string; labelKey: TranslationKey; icon: any }[];
 type TabKey = typeof TABS[number]["key"];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<TabKey>("company");
   const { data: ctx } = useBusinessContext();
+  const t = useT();
 
   return (
     <>
-      <PageHeader title="Organization settings"
-        description="Central business configuration — every part of the app reads from here." />
+      <PageHeader title={t("settings.title")}
+        description={t("settings.subtitle")} />
 
       <div className="flex flex-col lg:flex-row gap-6">
         <nav className="lg:w-56 shrink-0 grid grid-cols-3 lg:grid-cols-1 gap-1">
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            const active = t.key === tab;
+          {TABS.map((tab_) => {
+            const Icon = tab_.icon;
+            const active = tab_.key === tab;
             return (
-              <button key={t.key} onClick={() => setTab(t.key)}
+              <button key={tab_.key} onClick={() => setTab(tab_.key)}
                 className={cn(
                   "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
                   active ? "bg-accent text-accent-foreground"
                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                 )}>
-                <Icon className="h-4 w-4" /> <span className="truncate">{t.label}</span>
+                <Icon className="h-4 w-4" /> <span className="truncate">{t(tab_.labelKey)}</span>
               </button>
             );
           })}
@@ -66,6 +71,7 @@ export default function SettingsPage() {
           {tab === "notifications" && <NotificationsSection ctx={ctx} />}
           {tab === "integrations"  && <IntegrationsHint />}
           {tab === "knowledge"     && <KnowledgeBase />}
+          {tab === "language"      && <LanguagePicker />}
           {tab === "security"      && <SecurityHint />}
           {tab === "company" && <TelegramPanel />}
         </div>

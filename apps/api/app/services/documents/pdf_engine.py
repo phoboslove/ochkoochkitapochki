@@ -3,7 +3,7 @@
 Two real backends, picked at startup in this order:
   1. **WeasyPrint** — best fidelity (CSS @page, page-breaks, headers/footers,
      font embedding). Needs cairo/pango/gobject — readily available on Linux
-     and in our Dockerfile.prod; broken on most Windows machines without GTK.
+     and in our Dockerfile (prod target); broken on most Windows machines without GTK.
   2. **xhtml2pdf** — pure-Python (ReportLab + html5lib). Lower fidelity but
      works everywhere with `pip install`. Suitable for development and as a
      Windows fallback.

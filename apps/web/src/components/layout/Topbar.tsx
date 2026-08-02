@@ -10,9 +10,11 @@ import { Badge, StatusDot } from "@/components/ui/badge";
 import { useApprovals, useCompany, useLogout, useMe } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { CommandPalette, useCommandPaletteShortcut } from "@/components/CommandPalette";
+import { useT } from "@/lib/i18n";
 
 export function Topbar() {
   const { resolvedTheme, setTheme } = useTheme();
+  const t = useT();
   const { data: me } = useMe();
   const { data: company } = useCompany();
   const { data: approvals } = useApprovals();
@@ -34,7 +36,7 @@ export function Topbar() {
         className="group flex items-center gap-2 h-8 max-w-md w-full sm:w-72 lg:w-96 rounded-md border border-border bg-card px-2.5 text-left text-muted-foreground hover:border-[hsl(var(--brand)/0.4)] hover:text-foreground transition-all duration-150"
       >
         <Search className="h-3.5 w-3.5 group-hover:text-[hsl(var(--brand))] transition-colors" />
-        <span className="text-[12.5px] flex-1 truncate">Search anything…</span>
+        <span className="text-[12.5px] flex-1 truncate">{t("topbar.search")}</span>
         <span className="hidden sm:inline-flex items-center gap-0.5">
           <span className="kbd">{mod}</span><span className="kbd">K</span>
         </span>
@@ -50,13 +52,13 @@ export function Topbar() {
         <Button
           variant="ghost" size="icon" aria-label="Density"
           onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
-          title={density === "compact" ? "Comfortable density" : "Compact density"}
+          title={density === "compact" ? t("topbar.density.comfortable") : t("topbar.density.compact")}
         >
           {density === "compact" ? <Rows className="h-4 w-4" /> : <Rows3 className="h-4 w-4" />}
         </Button>
 
         <div className="relative">
-          <Button variant="ghost" size="icon" aria-label="Notifications">
+          <Button variant="ghost" size="icon" aria-label={t("topbar.notifications")}>
             <Bell className="h-4 w-4" />
           </Button>
           {pending > 0 && (
@@ -64,7 +66,7 @@ export function Topbar() {
           )}
         </div>
 
-        <Button variant="ghost" size="icon" aria-label="Toggle theme"
+        <Button variant="ghost" size="icon" aria-label={t("topbar.theme")}
                 onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
           {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
@@ -77,11 +79,11 @@ export function Topbar() {
             <div className="font-medium text-foreground truncate max-w-[160px]">{me?.email ?? "—"}</div>
             <div className="text-muted-foreground">{me?.role ?? ""}</div>
           </div>
-          <Button variant="ghost" size="icon" onClick={logout} aria-label="Logout">
+          <Button variant="ghost" size="icon" onClick={logout} aria-label={t("topbar.logout")}>
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
-        <Button variant="ghost" size="icon" className="sm:hidden" onClick={logout} aria-label="Logout">
+        <Button variant="ghost" size="icon" className="sm:hidden" onClick={logout} aria-label={t("topbar.logout")}>
           <LogOut className="h-4 w-4" />
         </Button>
       </div>

@@ -1,14 +1,18 @@
-"""Deterministic template analyzer.
+"""Template analyzer.
 
 Extracts:
   * paragraphs / text labels
   * table structures with column headers
   * Jinja-style {{placeholders}} already present
-  * detected language (RU/KZ/EN heuristic)
+  * detected language (langdetect, any language — not just RU/KZ/EN)
   * document kind classification (invoice/act/nakladnaya/...)
+  * suggested field mappings (label_matcher: embeddings first, substring
+    fallback — see label_matcher.py)
 
-NO LLM calls. NO autonomous rewriting. The output feeds the suggestion engine
-and the mapping UI, where humans confirm before anything is rendered.
+No autonomous rewriting — the output feeds the suggestion engine and the
+mapping UI, where humans confirm before anything is rendered. Field-mapping
+suggestions may call an LLM (via label_matcher, batched, for the extracted
+*labels* only — never the surrounding document's actual data values).
 """
 from __future__ import annotations
 
@@ -18,7 +22,8 @@ from dataclasses import asdict, dataclass, field
 from io import BytesIO
 from typing import Any
 
-from app.services.templates.placeholders import CANONICAL, suggest
+from app.services.templates.label_matcher import match_labels_batch
+from app.services.templates.placeholders import CANONICAL
 
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([\w\.\-]+)(?:\s*\|[^}]+)?\s*\}\}")
@@ -109,7 +114,7 @@ class Analysis:
         }
 
 
-def analyze(content: bytes, *, mime: str, filename: str) -> Analysis:
+async def analyze(content: bytes, *, mime: str, filename: str) -> Analysis:
     fmt = _format_of(mime, filename)
     file_hash = hashlib.sha256(content).hexdigest()
     notes: list[str] = []
@@ -145,9 +150,10 @@ def analyze(content: bytes, *, mime: str, filename: str) -> Analysis:
         for h in t.headers:
             sources.append((h, f"table_header:{t.sheet or 'doc'}"))
 
+    matches = await match_labels_batch([label for label, _ in sources])
     suggestions: dict[str, dict[str, Any]] = {}
     for label, source_kind in sources:
-        match = suggest(label)
+        match = matches.get(label)
         if not match: continue
         canonical, conf = match
         prev = suggestions.get(canonical)
@@ -291,6 +297,38 @@ def _analyze_rtf(content: bytes, notes: list[str]) -> tuple[list[str], list[Dete
 
 
 def _detect_language(paragraphs: list[str]) -> str:
+    """Kazakh-letter check first, then langdetect, then alphabet counting.
+
+    Measured against real RU/KK/EN/UZ samples: langdetect alone scores short
+    Kazakh business text as Russian almost every time — the two languages
+    share the Cyrillic alphabet and a lot of accounting vocabulary, and
+    langdetect's statistical model doesn't have enough signal in a few dozen
+    words to tell them apart. The letters ә/і/ң/ғ/ү/ұ/қ/ө/һ don't exist in
+    Russian at all, so their presence is a much stronger, cheaper signal for
+    Kazakh than any statistical model needs to be for this one case.
+
+    For everything else — English, or a language this app has never seen
+    before (Uzbek, German, whatever a foreign counterparty's contract is
+    written in) — langdetect covers 55+ languages instead of the historical
+    fixed RU/KZ/EN set.
+    """
+    sample = " ".join(paragraphs[:30]).strip()
+    kz_letters = len(re.findall(r"[әіңғүұқөһ]", sample.lower()))
+    if kz_letters >= 2:
+        return "kk"
+    if len(sample) >= 20:
+        try:
+            from langdetect import DetectorFactory, detect
+            DetectorFactory.seed = 0  # deterministic across runs
+            return detect(sample)
+        except Exception:  # noqa: BLE001 — langdetect missing or inconclusive
+            pass
+    return _detect_language_heuristic(paragraphs)
+
+
+def _detect_language_heuristic(paragraphs: list[str]) -> str:
+    """Alphabet-counting fallback — used when langdetect can't run at all
+    (too little text, or the package isn't installed)."""
     sample = " ".join(paragraphs[:30]).lower()
     cyr = len(re.findall(r"[а-яё]", sample))
     lat = len(re.findall(r"[a-z]", sample))

@@ -92,7 +92,7 @@ class TemplateService:
         is_default: bool = False,
     ) -> Template:
         """Ingest one file: persist, analyze, suggest mappings — atomic per file."""
-        analysis = analyze(content, mime=mime, filename=filename)
+        analysis = await analyze(content, mime=mime, filename=filename)
 
         # De-duplicate by hash → bump version of the existing family.
         existing = await session.scalar(
@@ -145,7 +145,7 @@ class TemplateService:
         return tpl
 
     async def reanalyze(self, session: AsyncSession, tpl: Template, content: bytes) -> Template:
-        analysis = analyze(content, mime="", filename=tpl.original_filename or tpl.name)
+        analysis = await analyze(content, mime="", filename=tpl.original_filename or tpl.name)
         tpl.detected_fields = {"paragraphs": analysis.paragraphs[:60],
                                "placeholders": analysis.placeholders,
                                "notes": analysis.notes}
@@ -198,7 +198,7 @@ class TemplateService:
         self, session: AsyncSession, parent: Template, *,
         actor_id: str, storage_key: str, content: bytes, filename: str, mime: str,
     ) -> Template:
-        analysis = analyze(content, mime=mime, filename=filename)
+        analysis = await analyze(content, mime=mime, filename=filename)
         max_version = (await session.scalar(
             select(func.max(Template.version)).where(
                 (Template.id == parent.id) | (Template.parent_template_id == parent.id),
