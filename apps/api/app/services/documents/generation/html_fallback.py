@@ -29,6 +29,22 @@ def _e(value: Any) -> str:
     return _html_escape("" if value is None else str(value), quote=True)
 
 
+# xhtml2pdf (ReportLab) has no Cyrillic glyphs in its built-in base-14 fonts
+# (Helvetica/Times/Courier) — 'Times New Roman' isn't installed on Linux
+# either, so xhtml2pdf silently substitutes a base font and every Cyrillic
+# character renders as a .notdef box. Liberation Serif is metrically
+# Times-compatible and ships full Cyrillic coverage (fonts-liberation, see
+# apps/api/Dockerfile); register it explicitly so xhtml2pdf embeds it
+# instead of guessing.
+_LIBERATION_SERIF = "/usr/share/fonts/truetype/liberation/LiberationSerif"
+_FONT_FACES = f"""
+  @font-face {{ font-family: 'DocSerif'; src: url('{_LIBERATION_SERIF}-Regular.ttf'); }}
+  @font-face {{ font-family: 'DocSerif'; font-weight: bold; src: url('{_LIBERATION_SERIF}-Bold.ttf'); }}
+  @font-face {{ font-family: 'DocSerif'; font-style: italic; src: url('{_LIBERATION_SERIF}-Italic.ttf'); }}
+  @font-face {{ font-family: 'DocSerif'; font-weight: bold; font-style: italic; src: url('{_LIBERATION_SERIF}-BoldItalic.ttf'); }}
+"""
+
+
 def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
     title = _e(_HUMAN_TITLE.get(kind, "Документ"))
     items_rows = "".join(
@@ -51,8 +67,9 @@ def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
 <html lang="ru"><head><meta charset="utf-8"/>
 <title>{title} {_e(context['document_number'])}</title>
 <style>
+  {_FONT_FACES}
   @page {{ size: A4; margin: 18mm 16mm; }}
-  body {{ font: 12.5px/1.5 'Times New Roman', serif; color:#111; }}
+  body {{ font: 12.5px/1.5 'DocSerif', 'Liberation Serif', serif; color:#111; }}
   h1 {{ font-size:18px; margin:0 0 4px; text-align:center; }}
   .meta {{ text-align:center; color:#444; margin-bottom:18px; }}
   .parties {{ display:flex; gap:24px; margin:18px 0; }}
