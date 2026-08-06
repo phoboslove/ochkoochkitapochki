@@ -69,7 +69,10 @@ def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
 <style>
   {_FONT_FACES}
   @page {{ size: A4; margin: 18mm 16mm; }}
-  body {{ font: 12.5px/1.5 'DocSerif', 'Liberation Serif', serif; color:#111; }}
+  /* xhtml2pdf's CSS parser doesn't extract font-family out of the `font`
+     shorthand — it silently falls back to a Cyrillic-less default font.
+     Longhand properties only. */
+  body {{ font-family: 'DocSerif', 'Liberation Serif', serif; font-size: 12.5px; line-height: 1.5; color:#111; }}
   h1 {{ font-size:18px; margin:0 0 4px; text-align:center; }}
   .meta {{ text-align:center; color:#444; margin-bottom:18px; }}
   .parties {{ display:flex; gap:24px; margin:18px 0; }}
