@@ -39,7 +39,6 @@ from app.services.documents.generation.quality import (
     QUALITY_BLOCK_THRESHOLD, QualityReport, check_render_quality,
 )
 from app.services.storage import get_storage
-from app.services.storage.base import sign_local_url
 from app.services.templates.matcher import bump_success, match_best
 from app.services.templates.renderer import build_context_from_template, render_template
 
@@ -193,7 +192,7 @@ class GenerationPipeline:
         base_key = f"{company_id}/generated/{doc_id}/{document_number}"
         orig_key = f"{base_key}.{ext}"
         self.storage.put(orig_key, doc_bytes, content_type=mime)
-        orig_url = sign_local_url(orig_key, expires_in=3600)
+        orig_url = self.storage.presign_get(orig_key, expires_in=3600)
 
         # 5) PDF — best-effort. Prefer real DOCX→PDF when possible, otherwise
         #    convert the HTML render with the in-process engine.
@@ -205,7 +204,7 @@ class GenerationPipeline:
             if pdf_bytes:
                 pdf_key = f"{base_key}.pdf"
                 self.storage.put(pdf_key, pdf_bytes, content_type="application/pdf")
-                pdf_url = sign_local_url(pdf_key, expires_in=3600)
+                pdf_url = self.storage.presign_get(pdf_key, expires_in=3600)
                 diag.info(STAGE_PDF_EXPORT, "pdf_exported",
                            f"PDF rendered via {pdf_meta.get('engine')} "
                            f"({pdf_meta.get('duration_ms','?')}ms, "
