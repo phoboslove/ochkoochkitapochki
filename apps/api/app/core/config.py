@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     ai_default_model: str = "gpt-3.5-turbo"
 
     s3_endpoint: str = "http://localhost:9000"
+    # Public-facing endpoint for presigned URLs, if it differs from
+    # s3_endpoint (e.g. api talks to MinIO over the internal Docker network
+    # at http://minio:9000, but presigned links handed to browsers need a
+    # publicly resolvable host). SigV4 signs the `host` header, so presigned
+    # URLs must be generated against whichever host will actually receive
+    # the request — falls back to s3_endpoint when unset.
+    s3_public_endpoint: str | None = None
     s3_region: str = "us-east-1"
     s3_bucket: str = "buchuchet"
     s3_access_key: str = "minioadmin"
