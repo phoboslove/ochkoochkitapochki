@@ -18,6 +18,7 @@ class CurrentUser:
     company_id: str
     role: str
     email: str
+    name: str | None = None
 
     def has_role(self, *allowed: str) -> bool:
         return self.role in allowed
@@ -40,7 +41,7 @@ async def get_current_user(
     user = await session.get(User, payload["sub"])
     if not user or not user.active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user inactive")
-    return CurrentUser(id=user.id, company_id=user.company_id, role=user.role, email=user.email)
+    return CurrentUser(id=user.id, company_id=user.company_id, role=user.role, email=user.email, name=user.name)
 
 
 def require_role(*allowed: str):
