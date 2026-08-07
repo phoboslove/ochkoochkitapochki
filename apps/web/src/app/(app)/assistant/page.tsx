@@ -130,6 +130,19 @@ function AssistantPage() {
     );
   };
 
+  // One-shot handoff from the dashboard's quick-create widget: it can't reuse
+  // the `assistant:send` event (that only reaches a listener already mounted
+  // on this page), so it navigates here with `?send=` instead. Fire once on
+  // arrival, then strip the param so a refresh/back doesn't resend it.
+  const sentPrefillRef = useRef(false);
+  useEffect(() => {
+    const prefill = params.get("send");
+    if (!prefill || sentPrefillRef.current) return;
+    sentPrefillRef.current = true;
+    send(decodeURIComponent(prefill));
+    router.replace("/assistant");
+  }, [params]); // eslint-disable-line
+
   return (
     <>
       <PageHeader

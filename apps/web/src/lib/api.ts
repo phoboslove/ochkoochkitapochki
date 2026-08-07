@@ -51,7 +51,7 @@ export const api = {
 
 // Types
 export type Role = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
-export type Me = { id: string; email: string; role: Role; company_id: string };
+export type Me = { id: string; email: string; name: string | null; role: Role; company_id: string };
 
 export type Invoice = {
   id: string; number: string; client_id: string | null;
