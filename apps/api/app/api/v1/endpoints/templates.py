@@ -13,7 +13,6 @@ from app.core.deps import CurrentUser, get_current_user, require_admin
 from app.db.models import Template
 from app.services.audit.logger import AuditLogger
 from app.services.storage import get_storage
-from app.services.storage.base import sign_local_url
 from app.services.templates.converter import (
     convert_to, find_soffice, is_available, ConverterUnavailable, TARGET_FOR,
 )
@@ -307,7 +306,8 @@ async def render_preview(
         raise HTTPException(500, f"render failed: {exc}")
 
     preview_key = f"{user.company_id}/templates/{t.id}/preview.{ext}"
-    get_storage().put(preview_key, rendered, content_type=mime_out)
+    storage = get_storage()
+    storage.put(preview_key, rendered, content_type=mime_out)
     t.last_render_at = datetime.utcnow()
     t.last_error = None
     await audit.record(
@@ -317,7 +317,7 @@ async def render_preview(
     )
     await session.commit()
     return {
-        "preview_url": sign_local_url(preview_key, expires_in=3600),
+        "preview_url": storage.presign_get(preview_key, expires_in=3600),
         "mime": mime_out, "ext": ext, "bytes": len(rendered),
     }
 

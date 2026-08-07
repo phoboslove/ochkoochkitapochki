@@ -10,7 +10,6 @@ from app.core.deps import CurrentUser, get_current_user, require_admin
 from app.db.models import Company
 from app.services.companies.memory import CompanyMemory
 from app.services.storage import get_storage
-from app.services.storage.base import sign_local_url
 
 router = APIRouter()
 memory = CompanyMemory()
@@ -154,7 +153,7 @@ async def get_me(
         "tax_mode": company.tax_mode, "country_code": company.country_code,
         "settings": company.settings,
         "plan": company.plan, "onboarded": company.onboarded,
-        "logo_url": sign_local_url(company.logo_key, expires_in=3600) if company.logo_key else None,
+        "logo_url": get_storage().presign_get(company.logo_key, expires_in=3600) if company.logo_key else None,
     }
 
 
@@ -209,4 +208,4 @@ async def upload_logo(
     company.logo_key = key
     company.settings = {**(company.settings or {}), "branding": {**((company.settings or {}).get("branding") or {}), "logo_key": key}}
     await session.commit()
-    return {"logo_key": key, "logo_url": sign_local_url(key, expires_in=3600)}
+    return {"logo_key": key, "logo_url": get_storage().presign_get(key, expires_in=3600)}

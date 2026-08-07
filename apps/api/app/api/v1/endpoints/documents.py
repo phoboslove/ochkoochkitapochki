@@ -13,7 +13,7 @@ _upload_limit   = rate_limit("documents.upload",   limit=30, window_s=60)
 from app.db.models import Document
 from app.services.audit.logger import AuditLogger
 from app.services.documents.service import DocumentService
-from app.services.storage.base import sign_local_url
+from app.services.storage import get_storage
 
 router = APIRouter()
 service = DocumentService()
@@ -25,7 +25,7 @@ def _serialize(d: Document) -> dict:
         "id": d.id, "title": d.title, "type": d.type, "mime": d.mime, "size": d.size,
         "status": d.status, "created_at": d.created_at.isoformat(),
         "checksum": d.checksum, "parsed": d.parsed,
-        "preview_url": sign_local_url(d.storage_key, expires_in=3600) if d.storage_key else None,
+        "preview_url": get_storage().presign_get(d.storage_key, expires_in=3600) if d.storage_key else None,
     }
 
 

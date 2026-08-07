@@ -6,7 +6,7 @@ from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user
 from app.db.models import Invoice
 from app.services.invoices.service import InvoiceService
-from app.services.storage.base import sign_local_url
+from app.services.storage import get_storage
 
 router = APIRouter()
 service = InvoiceService()
@@ -21,7 +21,7 @@ def _serialize(inv: Invoice) -> dict:
         "subtotal": str(inv.subtotal), "tax_total": str(inv.tax_total), "total": str(inv.total),
         "status": inv.status, "items": inv.items,
         "pdf_key": inv.pdf_key,
-        "pdf_url": sign_local_url(inv.pdf_key, expires_in=3600) if inv.pdf_key else None,
+        "pdf_url": get_storage().presign_get(inv.pdf_key, expires_in=3600) if inv.pdf_key else None,
     }
 
 
@@ -76,8 +76,6 @@ async def export_pdf(
     Failures are audited as `pdf.failed` and surface in Recovery Center.
     """
     from app.services.documents.pdf_engine import engine_status, render_pdf
-    from app.services.storage import get_storage
-    from app.services.storage.base import sign_local_url
     from app.services.audit.logger import AuditLogger
 
     inv = await service.get(session, user.company_id, invoice_id)
@@ -120,7 +118,7 @@ async def export_pdf(
     )
     await session.commit()
     return {
-        "pdf_url": sign_local_url(pdf_key, expires_in=3600),
+        "pdf_url": storage.presign_get(pdf_key, expires_in=3600),
         "bytes":   meta["bytes"],
         "engine":  meta["engine"],
         "duration_ms": meta["duration_ms"],

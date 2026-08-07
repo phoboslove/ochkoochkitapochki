@@ -13,7 +13,6 @@ from app.db.models import Client, Company, Invoice
 from app.services.audit.logger import AuditLogger
 from app.services.documents.render import get_renderer
 from app.services.storage import get_storage
-from app.services.storage.base import sign_local_url
 from app.services.templates.service import TemplateService
 
 
@@ -126,7 +125,7 @@ class InvoiceService:
         branding = (settings.get("branding") or {}).copy()
         # Materialize a signed logo URL for embedding (HTML renderer expects a list).
         logo_key = branding.get("logo_key") or company.logo_key
-        branding["logo_url_list"] = [{"url": sign_local_url(logo_key, expires_in=3600)}] if logo_key else []
+        branding["logo_url_list"] = [{"url": self.storage.presign_get(logo_key, expires_in=3600)}] if logo_key else []
         branding.setdefault("primary_color", "#0f172a")
 
         context = {
@@ -213,13 +212,12 @@ class InvoiceService:
         if mime == "text/html":
             try:
                 from app.services.documents.pdf_engine import engine_status, render_pdf
-                from app.services.storage.base import sign_local_url
                 eng = engine_status()
                 if eng.available:
                     pdf_bytes, meta = render_pdf(body.decode("utf-8"))
                     pdf_key = key.rsplit(".", 1)[0] + ".pdf"
                     self.storage.put(pdf_key, pdf_bytes, content_type="application/pdf")
-                    pdf_url = sign_local_url(pdf_key, expires_in=3600)
+                    pdf_url = self.storage.presign_get(pdf_key, expires_in=3600)
                     invoice.pdf_key = pdf_key   # prefer PDF for downstream actions
                     await self.audit.record(
                         session, company_id=company_id, actor_type="system",
@@ -274,7 +272,7 @@ class InvoiceService:
         try:
             from app.services.integrations.whatsapp import WhatsAppMessage, build_whatsapp_provider
             provider = await build_whatsapp_provider(session, invoice.company_id)
-            doc_url = sign_local_url(invoice.pdf_key, expires_in=3600) if invoice.pdf_key else None
+            doc_url = self.storage.presign_get(invoice.pdf_key, expires_in=3600) if invoice.pdf_key else None
             await provider.send(WhatsAppMessage(
                 to="+0", text=f"Invoice {invoice.number} (retry)",
                 document_url=doc_url, document_filename=f"{invoice.number}.html",
@@ -312,7 +310,7 @@ class InvoiceService:
         try:
             from app.services.integrations.whatsapp import WhatsAppMessage, build_whatsapp_provider
             provider = await build_whatsapp_provider(session, invoice.company_id)
-            doc_url = sign_local_url(invoice.pdf_key, expires_in=3600) if invoice.pdf_key else None
+            doc_url = self.storage.presign_get(invoice.pdf_key, expires_in=3600) if invoice.pdf_key else None
             await provider.send(WhatsAppMessage(
                 to="+0",  # demo — production reads client.phone
                 text=f"Invoice {invoice.number} is ready.",
