@@ -9,6 +9,7 @@ import { persist } from "zustand/middleware";
  * mirror to backend via /companies/settings.user_prefs (out of scope here).
  */
 type Density = "comfortable" | "compact";
+export type ClockStyle = "digital" | "analog" | "minimal";
 
 interface WorkspaceState {
   sidebarCollapsed: boolean;
@@ -16,6 +17,7 @@ interface WorkspaceState {
   accent: string;           // hex
   pinnedWidgets: string[];
   groupsExpanded: Record<string, boolean>;
+  clockStyle: ClockStyle;
   setCollapsed:  (v: boolean) => void;
   toggleCollapsed: () => void;
   setDensity:    (v: Density) => void;
@@ -23,6 +25,7 @@ interface WorkspaceState {
   toggleGroup:   (k: string) => void;
   pin:           (key: string) => void;
   unpin:         (key: string) => void;
+  setClockStyle: (v: ClockStyle) => void;
 }
 
 export const useWorkspace = create<WorkspaceState>()(
@@ -33,6 +36,7 @@ export const useWorkspace = create<WorkspaceState>()(
       accent: "#4f46e5",
       pinnedWidgets: [],
       groupsExpanded: { operations: true, automation: true, management: true, system: true },
+      clockStyle: "digital",
       setCollapsed:    (v) => set({ sidebarCollapsed: v }),
       toggleCollapsed: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
       setDensity:      (v) => set({ density: v }),
@@ -40,6 +44,7 @@ export const useWorkspace = create<WorkspaceState>()(
       toggleGroup:     (k) => set({ groupsExpanded: { ...get().groupsExpanded, [k]: !get().groupsExpanded[k] } }),
       pin:             (key) => set({ pinnedWidgets: [...new Set([...get().pinnedWidgets, key])] }),
       unpin:           (key) => set({ pinnedWidgets: get().pinnedWidgets.filter((k) => k !== key) }),
+      setClockStyle:   (v) => set({ clockStyle: v }),
     }),
     { name: "buchuchet.workspace" },
   ),
