@@ -184,8 +184,8 @@ function TelegramPanel() {
     <Card>
       <CardContent className="p-5 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-md bg-sky-500/10 ring-1 ring-sky-500/25 flex items-center justify-center">
-            <Send className="h-4 w-4 text-sky-500" />
+          <div className="h-10 w-10 rounded-md bg-info-bg ring-1 ring-[hsl(var(--info)/0.25)] flex items-center justify-center">
+            <Send className="h-4 w-4 text-[hsl(var(--info))]" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold">Telegram bot</div>
@@ -312,11 +312,11 @@ function ConnectedView({
         <dt className="text-muted-foreground">Webhook</dt>
         <dd className="flex flex-wrap items-center gap-2">
           {wh ? (
-            <span className="inline-flex items-center gap-1 text-emerald-500">
+            <span className="inline-flex items-center gap-1 text-[hsl(var(--success))]">
               <ShieldCheck className="h-3.5 w-3.5" /> Registered
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-amber-500">
+            <span className="inline-flex items-center gap-1 text-[hsl(var(--warning))]">
               <AlertTriangle className="h-3.5 w-3.5" /> Not registered
             </span>
           )}
@@ -330,7 +330,7 @@ function ConnectedView({
         {status?.webhook_error && (
           <>
             <dt className="text-muted-foreground">Last error</dt>
-            <dd className="text-[11.5px] text-amber-500">{status.webhook_error}</dd>
+            <dd className="text-[11.5px] text-[hsl(var(--warning))]">{status.webhook_error}</dd>
           </>
         )}
 
@@ -339,7 +339,7 @@ function ConnectedView({
           {minutesSinceEvent == null
             ? <span className="text-muted-foreground">— no inbound messages yet</span>
             : minutesSinceEvent < 1
-              ? <span className="text-emerald-500">just now</span>
+              ? <span className="text-[hsl(var(--success))]">just now</span>
               : <span className="text-muted-foreground">{minutesSinceEvent} min ago</span>}
         </dd>
 
@@ -347,7 +347,7 @@ function ConnectedView({
         <dd>
           {status?.linked
             ? <span>linked as <b className="font-mono">@{status.telegram_username ?? "—"}</b></span>
-            : <span className="text-amber-500">not linked — Telegram won't see you yet</span>}
+            : <span className="text-[hsl(var(--warning))]">not linked — Telegram won't see you yet</span>}
         </dd>
       </dl>
 
@@ -358,7 +358,7 @@ function ConnectedView({
           </Button>
         )}
         <Button size="sm" variant="ghost" onClick={onDisconnect} disabled={disconnectPending}
-                className="text-red-500 hover:text-red-500">
+                className="text-[hsl(var(--danger))] hover:text-[hsl(var(--danger))]">
           {disconnectPending ? "Отключаю…" : "Отключить бота"}
         </Button>
       </div>

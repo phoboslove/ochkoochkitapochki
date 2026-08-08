@@ -11,12 +11,12 @@ export function SaveIndicator({ dirty, saving, savedAt }: {
     </span>
   );
   if (dirty) return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-amber-600">
+    <span className="inline-flex items-center gap-1.5 text-xs text-[hsl(var(--warning))]">
       <CircleDot className="h-3 w-3" /> Unsaved
     </span>
   );
   if (savedAt) return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600">
+    <span className="inline-flex items-center gap-1.5 text-xs text-[hsl(var(--success))]">
       <Check className="h-3 w-3" /> Saved {savedAt.toLocaleTimeString()}
     </span>
   );

@@ -116,7 +116,7 @@ function Stat({ label, value, tone = "neutral" }: { label: string; value: string
     <Card>
       <CardContent className="p-4">
         <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={"text-xl font-semibold mt-1 " + (tone === "danger" ? "text-red-600" : tone === "warn" ? "text-amber-600" : tone === "success" ? "text-emerald-600" : "")}>{value}</div>
+        <div className={"text-xl font-semibold mt-1 " + (tone === "danger" ? "text-[hsl(var(--danger))]" : tone === "warn" ? "text-[hsl(var(--warning))]" : tone === "success" ? "text-[hsl(var(--success))]" : "")}>{value}</div>
       </CardContent>
     </Card>
   );
@@ -125,7 +125,7 @@ function Row({ k, v, tone = "neutral" }: { k: string; v: any; tone?: "danger" | 
   return (
     <div className="flex justify-between border-b last:border-0 py-1">
       <span className="text-muted-foreground">{k}</span>
-      <span className={"tabular-nums " + (tone === "danger" ? "text-red-600" : tone === "warn" ? "text-amber-600" : "")}>{v ?? "—"}</span>
+      <span className={"tabular-nums " + (tone === "danger" ? "text-[hsl(var(--danger))]" : tone === "warn" ? "text-[hsl(var(--warning))]" : "")}>{v ?? "—"}</span>
     </div>
   );
 }

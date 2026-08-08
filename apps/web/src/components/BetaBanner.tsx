@@ -32,8 +32,8 @@ export function BetaBanner() {
   };
 
   return (
-    <div className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[12.5px] text-foreground">
-      <Info className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+    <div className="flex items-start gap-3 border-b border-[hsl(var(--warning)/0.3)] bg-warning-bg px-4 py-2 text-[12.5px] text-foreground">
+      <Info className="h-4 w-4 mt-0.5 text-[hsl(var(--warning))] shrink-0" />
       <div className="flex-1">
         <b>Бета-версия.</b>{" "}
         Сейчас система поддерживает русский язык. Казахская локализация

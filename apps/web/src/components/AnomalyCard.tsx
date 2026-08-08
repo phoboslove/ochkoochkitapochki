@@ -13,7 +13,7 @@ export function AnomalyCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Anomalies ({data.length})
+          <AlertTriangle className="h-3.5 w-3.5 text-[hsl(var(--warning))]" /> Anomalies ({data.length})
         </CardTitle>
       </CardHeader>
       <CardContent>

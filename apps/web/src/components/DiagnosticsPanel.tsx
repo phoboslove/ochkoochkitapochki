@@ -21,9 +21,9 @@ export type Diagnostic = {
 };
 
 const SEVERITY_STYLES: Record<string, { ring: string; bg: string; fg: string; Icon: any }> = {
-  error:   { ring: "ring-red-500/30",   bg: "bg-red-500/8",    fg: "text-red-500",    Icon: AlertCircle    },
-  warning: { ring: "ring-amber-500/30", bg: "bg-amber-500/8",  fg: "text-amber-500",  Icon: AlertTriangle  },
-  info:    { ring: "ring-sky-500/25",   bg: "bg-sky-500/6",    fg: "text-sky-500",    Icon: Info           },
+  error:   { ring: "ring-[hsl(var(--danger)/0.3)]",   bg: "bg-danger-bg",    fg: "text-[hsl(var(--danger))]",    Icon: AlertCircle    },
+  warning: { ring: "ring-[hsl(var(--warning)/0.3)]", bg: "bg-warning-bg",  fg: "text-[hsl(var(--warning))]",  Icon: AlertTriangle  },
+  info:    { ring: "ring-[hsl(var(--info)/0.25)]",   bg: "bg-info-bg",    fg: "text-[hsl(var(--info))]",    Icon: Info           },
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -113,7 +113,7 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
           )}
           {d.suggested_fix && (
             <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-card/70 px-2 py-1.5 ring-1 ring-border/50">
-              <Lightbulb className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
+              <Lightbulb className="h-3.5 w-3.5 mt-0.5 text-[hsl(var(--warning))] shrink-0" />
               <span className="text-[11.5px] text-muted-foreground leading-snug">
                 <span className="font-medium text-foreground/80 mr-1">Fix:</span>
                 {d.suggested_fix}
@@ -143,9 +143,9 @@ export function QualityBadge({
 }: { score: number | null | undefined; status?: string | null }) {
   if (score == null) return null;
   const tone =
-    status === "blocked" || score < 60 ? "bg-red-500/10 text-red-500 ring-red-500/25" :
-    status === "warning" || score < 80 ? "bg-amber-500/10 text-amber-500 ring-amber-500/25" :
-                                          "bg-emerald-500/10 text-emerald-500 ring-emerald-500/25";
+    status === "blocked" || score < 60 ? "bg-danger-bg text-[hsl(var(--danger))] ring-[hsl(var(--danger)/0.25)]" :
+    status === "warning" || score < 80 ? "bg-warning-bg text-[hsl(var(--warning))] ring-[hsl(var(--warning)/0.25)]" :
+                                          "bg-success-bg text-[hsl(var(--success))] ring-[hsl(var(--success)/0.25)]";
   return (
     <span className={cn(
       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 tabular-nums",
@@ -163,8 +163,8 @@ export function FallbackWarning({
 }: { used: boolean; reason?: string | null; engine?: string | null }) {
   if (!used) return null;
   return (
-    <div className="flex items-start gap-2.5 rounded-md ring-1 ring-amber-500/30 bg-amber-500/8 px-3 py-2.5">
-      <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
+    <div className="flex items-start gap-2.5 rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-3 py-2.5">
+      <AlertTriangle className="h-4 w-4 mt-0.5 text-[hsl(var(--warning))] shrink-0" />
       <div className="min-w-0">
         <div className="text-[13px] font-medium">
           Original template could not be rendered — fallback layout used

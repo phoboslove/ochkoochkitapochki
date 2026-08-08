@@ -286,7 +286,7 @@ function GeneratedDocumentCard({
           <dd className="truncate">
             <span className="font-medium">{tpl.name ?? "—"}</span>
             {adaptation?.applied && (
-              <span className="ml-2 text-[11px] text-sky-500">
+              <span className="ml-2 text-[11px] text-[hsl(var(--info))]">
                 · adapted (+{adaptation.anchors_injected ?? 0} anchor{adaptation.anchors_injected === 1 ? "" : "s"})
               </span>
             )}
@@ -294,8 +294,8 @@ function GeneratedDocumentCard({
         </div>
 
         {fallback.used && (
-          <div className="flex items-start gap-2 rounded-md ring-1 ring-amber-500/30 bg-amber-500/8 px-2.5 py-2 text-[11.5px]">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
+          <div className="flex items-start gap-2 rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-2.5 py-2 text-[11.5px]">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-[hsl(var(--warning))] shrink-0" />
             <div className="min-w-0">
               <div className="font-medium">Fallback layout used</div>
               <div className="text-muted-foreground">{fallback.reason ?? "Original template could not be rendered."}</div>
@@ -304,8 +304,8 @@ function GeneratedDocumentCard({
         )}
 
         {isBlocked && Array.isArray(quality.issues) && quality.issues.length > 0 && (
-          <div className="rounded-md ring-1 ring-red-500/25 bg-red-500/8 px-2.5 py-2 text-[11.5px]">
-            <div className="flex items-center gap-1.5 font-medium text-red-500">
+          <div className="rounded-md ring-1 ring-[hsl(var(--danger)/0.25)] bg-danger-bg px-2.5 py-2 text-[11.5px]">
+            <div className="flex items-center gap-1.5 font-medium text-[hsl(var(--danger))]">
               <ShieldAlert className="h-3.5 w-3.5" />
               Blocked by quality gate · {quality.issues.length} issue{quality.issues.length === 1 ? "" : "s"}
             </div>
@@ -474,7 +474,7 @@ function DocumentProposalCard({ tc }: { tc: ToolCall }) {
                   />
                   <span className="text-[12.5px] font-medium truncate flex-1">{t.name}</span>
                   {t.verified && (
-                    <span className="text-[10px] font-medium text-emerald-500">VERIFIED</span>
+                    <span className="text-[10px] font-medium text-[hsl(var(--success))]">VERIFIED</span>
                   )}
                   {typeof t.operational_score === "number" && (
                     <span className="text-[10.5px] text-muted-foreground tabular-nums">
@@ -487,15 +487,15 @@ function DocumentProposalCard({ tc }: { tc: ToolCall }) {
             </div>
           </div>
         ) : (
-          <div className="rounded-md ring-1 ring-amber-500/30 bg-amber-500/8 px-2.5 py-2 text-[11.5px] text-muted-foreground">
+          <div className="rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-2.5 py-2 text-[11.5px] text-muted-foreground">
             Нет подходящего VERIFIED-шаблона — будет использован встроенный fallback-макет.
           </div>
         )}
 
         {/* Missing fields */}
         {missing.length > 0 && (
-          <div className="rounded-md ring-1 ring-amber-500/30 bg-amber-500/8 px-2.5 py-2 text-[11.5px]">
-            <div className="flex items-center gap-1.5 font-medium text-amber-500 mb-0.5">
+          <div className="rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-2.5 py-2 text-[11.5px]">
+            <div className="flex items-center gap-1.5 font-medium text-[hsl(var(--warning))] mb-0.5">
               <AlertTriangle className="h-3.5 w-3.5" /> Не хватает данных
             </div>
             <ul className="text-muted-foreground space-y-0.5">

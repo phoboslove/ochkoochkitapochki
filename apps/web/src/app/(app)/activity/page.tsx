@@ -83,7 +83,7 @@ export default function ActivityPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs">{l.action}</span>
-                      {l.action.includes("failed") && <AlertTriangle className="h-3 w-3 text-red-500" />}
+                      {l.action.includes("failed") && <AlertTriangle className="h-3 w-3 text-[hsl(var(--danger))]" />}
                       {l.resource && (
                         <Link
                           href={l.resource.startsWith("inv_") ? `/invoices/${l.resource}` :
@@ -115,7 +115,7 @@ function Stat({ label, value, tone = "neutral" }: { label: string; value: number
     <Card>
       <CardContent className="p-3">
         <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={"text-xl font-semibold " + (tone === "danger" ? "text-red-600" : tone === "success" ? "text-emerald-600" : "")}>{value}</div>
+        <div className={"text-xl font-semibold " + (tone === "danger" ? "text-[hsl(var(--danger))]" : tone === "success" ? "text-[hsl(var(--success))]" : "")}>{value}</div>
       </CardContent>
     </Card>
   );

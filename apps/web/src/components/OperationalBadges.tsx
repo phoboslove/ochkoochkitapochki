@@ -53,10 +53,10 @@ function Pill({
   tone: "verified" | "ok" | "warn" | "danger" | "neutral";
 }) {
   const TONE: Record<string, string> = {
-    verified: "bg-emerald-500/10 text-emerald-500 ring-emerald-500/25",
-    ok:       "bg-sky-500/10 text-sky-500 ring-sky-500/25",
-    warn:     "bg-amber-500/10 text-amber-500 ring-amber-500/25",
-    danger:   "bg-red-500/10 text-red-500 ring-red-500/25",
+    verified: "bg-success-bg text-[hsl(var(--success))] ring-[hsl(var(--success)/0.25)]",
+    ok:       "bg-info-bg text-[hsl(var(--info))] ring-[hsl(var(--info)/0.25)]",
+    warn:     "bg-warning-bg text-[hsl(var(--warning))] ring-[hsl(var(--warning)/0.25)]",
+    danger:   "bg-danger-bg text-[hsl(var(--danger))] ring-[hsl(var(--danger)/0.25)]",
     neutral:  "bg-card text-muted-foreground ring-border/60",
   };
   return (

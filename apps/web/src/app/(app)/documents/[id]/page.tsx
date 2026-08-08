@@ -88,7 +88,7 @@ export default function DocumentDetailPage() {
                 Template: <span className="text-foreground font-medium">{template.name}</span>
                 {template.format && <span className="ml-1 font-mono opacity-70">.{template.format}</span>}
                 {adaptation?.applied && (
-                  <span className="ml-3 text-sky-500">
+                  <span className="ml-3 text-[hsl(var(--info))]">
                     · adapted (+{adaptation.anchors_injected ?? 0} anchor{adaptation.anchors_injected === 1 ? "" : "s"})
                   </span>
                 )}

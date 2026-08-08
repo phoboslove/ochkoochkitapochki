@@ -119,9 +119,9 @@ function Stepper({ current, steps, doneOf, onClick }: {
           <li key={s.key}>
             <button onClick={() => onClick(i)}
               className={"w-full flex flex-col items-center gap-1 rounded-md border p-2 text-xs transition " +
-                (active ? "border-primary bg-accent" : done ? "border-emerald-500/30" : "border-border hover:bg-accent/30")}>
+                (active ? "border-primary bg-accent" : done ? "border-[hsl(var(--success)/0.3)]" : "border-border hover:bg-accent/30")}>
               <span className={"h-7 w-7 rounded-full grid place-items-center " +
-                (done ? "bg-emerald-500/15 text-emerald-600" : active ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                (done ? "bg-success-bg text-[hsl(var(--success))]" : active ? "bg-primary text-primary-foreground" : "bg-muted")}>
                 {done ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
               </span>
               <span className="text-center leading-tight">{s.label}</span>
