@@ -50,45 +50,20 @@ export const useWorkspace = create<WorkspaceState>()(
   ),
 );
 
-/** Apply density + accent to the document root. Mount once near top of tree. */
+/** Apply density to the document root. Mount once near top of tree.
+ *
+ * `accent`/`setAccent` are kept in the store for a future per-user accent
+ * picker, but are intentionally NOT applied here: forcing a hardcoded
+ * inline `--brand` on <html> would outrank every theme's own `--brand`
+ * token (inline style beats any selector), silently flattening all six
+ * themes to one accent color the moment this component mounts. */
 export function WorkspaceEffects() {
   const density = useWorkspace((s) => s.density);
-  const accent = useWorkspace((s) => s.accent);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("density-compact", density === "compact");
   }, [density]);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const hsl = hexToHslTriplet(accent);
-    if (hsl) document.documentElement.style.setProperty("--brand", hsl);
-  }, [accent]);
-
   return null;
-}
-
-function hexToHslTriplet(hex: string): string | null {
-  const m = hex.replace("#", "").match(/^([0-9a-f]{6}|[0-9a-f]{3})$/i);
-  if (!m) return null;
-  let h = m[0];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let s = 0, hue = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: hue = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: hue = (b - r) / d + 2; break;
-      case b: hue = (r - g) / d + 4; break;
-    }
-    hue /= 6;
-  }
-  return `${Math.round(hue * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
