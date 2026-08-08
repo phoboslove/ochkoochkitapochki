@@ -104,7 +104,7 @@ function RecoveryCard({
   const km = KIND_META[row.kind] ?? KIND_META.system;
   const Icon = km.Icon;
   const isCritical = row.kind === "approval" || row.kind === "generated_document";
-  const accent = isCritical ? "border-l-red-500" : "border-l-amber-500";
+  const accent = isCritical ? "border-l-[hsl(var(--danger))]" : "border-l-[hsl(var(--warning))]";
   const label = LABELS[row.action] ?? row.action;
 
   const diagnostics: Diagnostic[] = [];
@@ -144,8 +144,8 @@ function RecoveryCard({
           <div className="flex items-center gap-2">
             <span className={cn(
               "inline-flex h-7 w-7 items-center justify-center rounded-md ring-1",
-              isCritical ? "bg-red-500/10 ring-red-500/25 text-red-500"
-                         : "bg-amber-500/10 ring-amber-500/25 text-amber-500",
+              isCritical ? "bg-danger-bg ring-[hsl(var(--danger)/0.25)] text-[hsl(var(--danger))]"
+                         : "bg-warning-bg ring-[hsl(var(--warning)/0.25)] text-[hsl(var(--warning))]",
             )}>
               <Icon className="h-3.5 w-3.5" />
             </span>
@@ -173,7 +173,7 @@ function RecoveryCard({
 
         {/* Fallback transparency banner for generated docs that used HTML fallback. */}
         {row.meta.fallback?.used && (
-          <div className="rounded-md ring-1 ring-amber-500/30 bg-amber-500/8 px-3 py-2 text-[11.5px] text-muted-foreground">
+          <div className="rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-3 py-2 text-[11.5px] text-muted-foreground">
             <span className="font-medium text-foreground/80">Fallback engine used:</span>{" "}
             {row.meta.fallback.reason ?? "no template available"}
             {row.meta.fallback.engine && <span className="ml-2 font-mono opacity-70">{row.meta.fallback.engine}</span>}

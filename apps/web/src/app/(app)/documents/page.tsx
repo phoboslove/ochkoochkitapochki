@@ -58,18 +58,18 @@ export default function DocumentsPage() {
                 <li key={it.key}>
                   <div className="flex items-center gap-2 text-xs">
                     {it.status === "uploading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                    {it.status === "done"      && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
-                    {it.status === "error"     && <AlertCircle className="h-3 w-3 text-red-500" />}
+                    {it.status === "done"      && <CheckCircle2 className="h-3 w-3 text-[hsl(var(--success))]" />}
+                    {it.status === "error"     && <AlertCircle className="h-3 w-3 text-[hsl(var(--danger))]" />}
                     <span className="truncate flex-1">{it.name}</span>
                     <span className="tabular-nums">{it.status === "error" ? "failed" : `${it.progress}%`}</span>
                   </div>
                   <div className="mt-1 h-1.5 bg-muted rounded overflow-hidden">
                     <div
-                      className={"h-full " + (it.status === "error" ? "bg-red-500" : it.status === "done" ? "bg-emerald-500" : "bg-primary")}
+                      className={"h-full " + (it.status === "error" ? "bg-[hsl(var(--danger))]" : it.status === "done" ? "bg-[hsl(var(--success))]" : "bg-primary")}
                       style={{ width: `${it.progress}%` }}
                     />
                   </div>
-                  {it.error && <div className="mt-1 text-[11px] text-red-500">{it.error}</div>}
+                  {it.error && <div className="mt-1 text-[11px] text-[hsl(var(--danger))]">{it.error}</div>}
                 </li>
               ))}
             </ul>

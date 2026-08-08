@@ -123,7 +123,7 @@ export function SupportWidget() {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold leading-none">Buchuchet support</div>
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online · 24/7
+            <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" /> Online · 24/7
           </div>
         </div>
         <button onClick={() => setMinimized(true)} className="text-muted-foreground hover:text-foreground p-1" aria-label="Minimize">

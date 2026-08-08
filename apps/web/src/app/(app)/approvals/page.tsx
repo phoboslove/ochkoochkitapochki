@@ -50,7 +50,7 @@ export default function ApprovalsPage() {
       {blocked.length > 0 && (
         <section className="mb-6">
           <h3 className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
+            <ShieldAlert className="h-3.5 w-3.5 text-[hsl(var(--danger))]" />
             Blocked by quality gate · {blocked.length}
           </h3>
           <div className="space-y-3">
@@ -63,7 +63,7 @@ export default function ApprovalsPage() {
         {pending.map((a) => {
           const p = (a.payload ?? {}) as ApprovalPayload;
           return (
-            <Card key={a.id} className="border-l-4 border-l-amber-500">
+            <Card key={a.id} className="border-l-4 border-l-[hsl(var(--warning))]">
               <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
                 <Badge tone="warn">PENDING</Badge>
                 <div className="flex-1 min-w-0">
@@ -130,7 +130,7 @@ function BlockedCard({ approval }: { approval: any }) {
     severity: (i.severity as any) ?? "error", where: i.where ?? null,
   }));
   return (
-    <Card className={cn("border-l-4 border-l-red-500")}>
+    <Card className={cn("border-l-4 border-l-[hsl(var(--danger))]")}>
       <CardContent className="p-4 space-y-3">
         <div className="flex flex-wrap items-start gap-2.5">
           <Badge tone="danger">BLOCKED</Badge>

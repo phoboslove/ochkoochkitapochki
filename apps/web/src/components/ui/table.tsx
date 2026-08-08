@@ -45,7 +45,7 @@ export function SkeletonRow({ cols }: { cols: number }) {
         <TD key={i}>
           <div className="h-3 w-2/3 rounded bg-muted relative overflow-hidden">
             <span className="absolute inset-0 -translate-x-full animate-shimmer
-                             bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                             bg-gradient-to-r from-transparent via-[hsl(var(--foreground)/0.12)] to-transparent" />
           </div>
         </TD>
       ))}
