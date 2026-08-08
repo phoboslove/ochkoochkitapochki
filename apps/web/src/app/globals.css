@@ -4,7 +4,13 @@
 
 /* Premium operational SaaS — deep graphite, electric cobalt, layered surfaces. */
 @layer base {
-  :root {
+  /* Six themes, one token contract. Every surface must read colors through
+     these variables — never a literal hex/rgb or Tailwind palette class —
+     that's what lets a new theme "just work" everywhere at once. Applied
+     via next-themes' `data-theme` attribute on <html> (see Providers.tsx);
+     :root carries the light values too, as the pre-hydration fallback. */
+
+  :root, [data-theme="light"] {
     /* Light — warm paper, calm finance-grade. */
     --background:           30 24% 98%;
     --foreground:           224 30% 11%;
@@ -40,9 +46,10 @@
     --info-bg:              214 88% 95%;
 
     --shadow-color:         220 40% 14%;
+    color-scheme: light;
   }
 
-  .dark {
+  [data-theme="dark"] {
     /* Dark — premium graphite, layered depth. Reference: Linear / Ramp / Mercury. */
     --background:           225 18% 7.5%;      /* #0F1115 */
     --foreground:           220 14% 94%;
@@ -77,11 +84,170 @@
     --info-bg:              215 30% 15%;
 
     --shadow-color:         0 0% 0%;
+    color-scheme: dark;
+  }
+
+  [data-theme="monochrome"] {
+    /* Monochrome — editorial / gallery. Near-black warm neutral, cream
+       (never pure white) text, white spent sparingly as the one accent. */
+    --background:           0 0% 4%;           /* #0A0A0A */
+    --foreground:           40 8% 92%;          /* warm cream */
+    --card:                 30 4% 7%;
+    --card-foreground:      40 8% 92%;
+    --surface-2:            30 3% 9%;
+    --surface-3:            30 3% 12%;
+    --muted:                30 3% 11%;
+    --muted-foreground:     30 4% 58%;
+    --subtle:               30 4% 18%;
+    --primary:              40 8% 92%;
+    --primary-foreground:   0 0% 6%;
+    --accent:               30 3% 14%;
+    --accent-foreground:    40 8% 92%;
+    --destructive:          0 50% 46%;
+    --destructive-foreground: 0 0% 97%;
+    --border:               30 4% 16%;
+    --input:                30 4% 17%;
+    --ring:                 40 8% 80%;
+
+    --brand:                0 0% 96%;           /* near-white, used sparingly */
+    --brand-foreground:     0 0% 6%;
+    --brand-subtle:         0 0% 14%;
+
+    --success:              152 25% 48%;
+    --success-bg:           152 15% 14%;
+    --warning:              36 35% 55%;
+    --warning-bg:           36 20% 14%;
+    --danger:               354 40% 55%;
+    --danger-bg:            354 20% 15%;
+    --info:                 215 25% 60%;
+    --info-bg:              215 15% 15%;
+
+    --shadow-color:         0 0% 0%;
+    color-scheme: dark;
+  }
+
+  [data-theme="graphite"] {
+    /* Graphite & Gold — luxury watch case, black card. Gold is spent only
+       on the brand token (active states, key numbers, focus ring). */
+    --background:           220 12% 8%;
+    --foreground:           220 8% 92%;
+    --card:                 220 11% 10%;
+    --card-foreground:      220 8% 92%;
+    --surface-2:            220 10% 12%;
+    --surface-3:            220 9% 15%;
+    --muted:                220 10% 13%;
+    --muted-foreground:     220 6% 60%;
+    --subtle:               220 8% 20%;
+    --primary:              220 8% 92%;
+    --primary-foreground:   220 14% 8%;
+    --accent:               220 9% 15%;
+    --accent-foreground:    220 8% 92%;
+    --destructive:          0 50% 50%;
+    --destructive-foreground: 0 0% 97%;
+    --border:               220 8% 18%;
+    --input:                220 8% 19%;
+    --ring:                 42 49% 58%;
+
+    --brand:                42 49% 58%;          /* #C9A961 — muted gold */
+    --brand-foreground:     220 14% 10%;
+    --brand-subtle:         42 30% 16%;
+
+    --success:              152 35% 45%;
+    --success-bg:           152 20% 13%;
+    --warning:              36 55% 55%;
+    --warning-bg:           36 25% 14%;
+    --danger:               354 50% 55%;
+    --danger-bg:            354 25% 15%;
+    --info:                 215 45% 58%;
+    --info-bg:              215 22% 15%;
+
+    --shadow-color:         220 30% 3%;
+    color-scheme: dark;
+  }
+
+  [data-theme="ivory"] {
+    /* Ivory — old-school notary office. Warm ivory paper, dark brown-grey
+       ink, bordeaux for anything that needs to feel signed and sealed. */
+    --background:           40 32% 96%;
+    --foreground:           30 15% 18%;
+    --card:                 40 22% 99%;
+    --card-foreground:      30 15% 18%;
+    --surface-2:            38 22% 94%;
+    --surface-3:            36 20% 91%;
+    --muted:                38 20% 93%;
+    --muted-foreground:     30 10% 42%;
+    --subtle:               35 15% 85%;
+    --primary:              30 15% 18%;
+    --primary-foreground:   40 30% 97%;
+    --accent:               38 20% 91%;
+    --accent-foreground:    30 15% 18%;
+    --destructive:          354 55% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border:               35 15% 84%;
+    --input:                35 15% 86%;
+    --ring:                 350 45% 30%;
+
+    --brand:                350 45% 28%;         /* #7A3241 — bordeaux */
+    --brand-foreground:     40 30% 97%;
+    --brand-subtle:         350 35% 92%;
+
+    --success:              152 50% 30%;
+    --success-bg:           152 35% 90%;
+    --warning:              36 80% 38%;
+    --warning-bg:           36 60% 88%;
+    --danger:               354 60% 42%;
+    --danger-bg:            354 50% 92%;
+    --info:                 215 60% 42%;
+    --info-bg:              215 45% 92%;
+
+    --shadow-color:         30 30% 20%;
+    color-scheme: light;
+  }
+
+  [data-theme="midnight"] {
+    /* Midnight Blue — private banking, evening cockpit. Near-black with a
+       cold blue depth, silvery-blue accent instead of the usual cobalt. */
+    --background:           225 45% 6%;
+    --foreground:           210 20% 92%;
+    --card:                 225 40% 8%;
+    --card-foreground:      210 20% 92%;
+    --surface-2:            224 35% 10%;
+    --surface-3:            223 32% 13%;
+    --muted:                224 35% 11%;
+    --muted-foreground:     215 15% 62%;
+    --subtle:               222 30% 18%;
+    --primary:              210 20% 92%;
+    --primary-foreground:   225 45% 8%;
+    --accent:               223 32% 14%;
+    --accent-foreground:    210 20% 92%;
+    --destructive:          0 50% 55%;
+    --destructive-foreground: 0 0% 97%;
+    --border:               222 30% 16%;
+    --input:                222 30% 18%;
+    --ring:                 205 35% 62%;
+
+    --brand:                205 35% 62%;          /* silvery blue */
+    --brand-foreground:     225 45% 8%;
+    --brand-subtle:         205 30% 16%;
+
+    --success:              160 40% 50%;
+    --success-bg:           160 25% 13%;
+    --warning:              40 55% 58%;
+    --warning-bg:           40 28% 14%;
+    --danger:               354 55% 60%;
+    --danger-bg:            354 28% 15%;
+    --info:                 205 50% 62%;
+    --info-bg:              205 28% 15%;
+
+    --shadow-color:         225 60% 2%;
+    color-scheme: dark;
   }
 
   * { @apply border-border; }
   html {
     font-feature-settings: "cv11", "ss01";
+    /* color-scheme is set per-theme above (native scrollbars/form controls);
+       this is only the pre-hydration fallback before data-theme lands. */
     color-scheme: light dark;
   }
   body {
@@ -91,11 +257,17 @@
     letter-spacing: -0.005em;
   }
 
-  /* Ambient dark backdrop — subtle radial spotlight from the top of the viewport. */
-  .dark body {
+  /* Ambient backdrop for every dark-family theme — a subtle radial spotlight
+     from the top of the viewport, tinted by that theme's own --brand so it
+     never needs a hardcoded color. Light-family themes (light, ivory) skip
+     this — a glow would fight the "paper" feel they're going for. */
+  [data-theme="dark"] body,
+  [data-theme="monochrome"] body,
+  [data-theme="graphite"] body,
+  [data-theme="midnight"] body {
     background-image:
       radial-gradient(900px 600px at 12% -10%, hsl(var(--brand) / 0.10), transparent 60%),
-      radial-gradient(700px 480px at 95% -5%, hsl(223 80% 55% / 0.06), transparent 65%);
+      radial-gradient(700px 480px at 95% -5%, hsl(var(--brand) / 0.06), transparent 65%);
     background-attachment: fixed;
   }
 
