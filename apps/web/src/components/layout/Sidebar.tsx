@@ -196,7 +196,7 @@ export function Sidebar() {
 
       {open && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-[hsl(var(--shadow-color)/0.5)]" onClick={() => setOpen(false)} />
           <aside className="relative flex w-[260px] flex-col bg-card border-r border-border">{body}</aside>
         </div>
       )}

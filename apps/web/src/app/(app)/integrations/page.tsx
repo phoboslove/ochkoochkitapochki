@@ -69,7 +69,7 @@ function ConnectModal({ provider, onClose }: { provider: string; onClose: () => 
   const preset = presets[provider];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--shadow-color)/0.5)] p-4" onClick={onClose}>
       <Card className="w-[520px] max-w-full" onClick={(e) => e.stopPropagation()}>
         <CardContent className="p-5 space-y-3">
           <div className="text-base font-semibold capitalize">Connect {provider}</div>

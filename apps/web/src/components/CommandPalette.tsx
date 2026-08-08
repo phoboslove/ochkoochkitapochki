@@ -113,7 +113,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 sm:pt-[12vh] bg-black/40 animate-fadeIn"
+    <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 sm:pt-[12vh] bg-[hsl(var(--shadow-color)/0.5)] animate-fadeIn"
          onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
