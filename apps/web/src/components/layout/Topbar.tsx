@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  Search, Sun, Moon, Bell, LogOut, Rows3, Rows,
+  Search, Bell, LogOut, Rows3, Rows,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusDot } from "@/components/ui/badge";
 import { useApprovals, useCompany, useLogout, useMe } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { CommandPalette, useCommandPaletteShortcut } from "@/components/CommandPalette";
+import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { useT } from "@/lib/i18n";
 
 export function Topbar() {
-  const { resolvedTheme, setTheme } = useTheme();
   const t = useT();
-  // next-themes can't know the real theme during SSR (it lives in
-  // localStorage), so `resolvedTheme` is undefined on the server and on the
-  // client's first render pass — rendering Sun/Moon off it directly causes a
-  // hydration mismatch. Defer to a neutral placeholder until mounted.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
   const { data: me } = useMe();
   const { data: company } = useCompany();
   const { data: approvals } = useApprovals();
@@ -72,12 +65,7 @@ export function Topbar() {
           )}
         </div>
 
-        <Button variant="ghost" size="icon" aria-label={t("topbar.theme")}
-                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-          {mounted
-            ? (resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />)
-            : <span className="h-4 w-4" />}
-        </Button>
+        <ThemeSwitcher />
 
         <div className="hidden sm:flex items-center gap-2 pl-2 ml-1 border-l border-border">
           <div className="h-7 w-7 rounded-full bg-accent text-foreground grid place-items-center text-[11px] font-medium">
