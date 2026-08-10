@@ -10,6 +10,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { useApprovals } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { useT } from "@/lib/i18n";
@@ -80,15 +81,18 @@ export function Sidebar() {
         "h-14 flex items-center gap-2 px-4 border-b border-border",
         collapsed ? "justify-center px-2" : "",
       )}>
-        <div className="h-7 w-7 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[12px] font-semibold shadow-brand">
-          W
-        </div>
+        {collapsed ? (
+          <div className="h-7 w-7 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[12px] font-semibold shadow-brand">
+            W
+          </div>
+        ) : (
+          <div className="leading-tight">
+            <Wordmark className="h-[22px] w-auto text-foreground" />
+            <div className="text-[10px] text-muted-foreground mt-0.5">{t("sidebar.brand_tagline")}</div>
+          </div>
+        )}
         {!collapsed && (
           <>
-            <div className="leading-tight">
-              <div className="text-[13px] font-semibold">Wagwan</div>
-              <div className="text-[10px] text-muted-foreground -mt-0.5">{t("sidebar.brand_tagline")}</div>
-            </div>
             <button
               onClick={toggleCollapsed}
               className="ml-auto hidden md:inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"

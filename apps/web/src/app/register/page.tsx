@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { useRegister } from "@/lib/hooks";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,12 +73,9 @@ export default function RegisterPage() {
       </div>
 
       <div className="relative w-[400px] max-w-full">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="h-8 w-8 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[13px] font-semibold shadow-brand">W</div>
-          <div className="leading-tight">
-            <div className="text-[15px] font-semibold">Wagwan</div>
-            <div className="text-[11px] text-muted-foreground">AI backoffice operating system</div>
-          </div>
+        <div className="mb-8 flex flex-col items-center text-center">
+          <Wordmark className="h-10 w-auto text-foreground" />
+          <div className="text-[11px] text-muted-foreground mt-2">AI backoffice operating system</div>
         </div>
 
         <Card>
