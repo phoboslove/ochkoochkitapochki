@@ -95,4 +95,5 @@ async def login(body: LoginIn, session: AsyncSession = Depends(get_session)) -> 
 @router.get("/me")
 async def me(current: CurrentUser = Depends(get_current_user)) -> dict:
     return {"id": current.id, "email": current.email, "name": current.name,
-            "role": current.role, "company_id": current.company_id}
+            "role": current.role, "company_id": current.company_id,
+            "is_platform_admin": current.is_platform_admin}

@@ -5,6 +5,7 @@ import {
   api, tokenStore,
   type Approval, type AuditEntry, type CompanyOut, type DocumentDetail,
   type DocumentItem, type IntegrationItem, type Invoice, type InvoiceDetail, type Me,
+  type MyPayment, type MySubscription,
   type OnboardingState, type ToolManifest, type UsageAnalytics,
 } from "@/lib/api";
 
@@ -18,6 +19,10 @@ export const useInvoice    = (id: string) =>
   useQuery({ queryKey: ["invoice", id], queryFn: () => api.get<InvoiceDetail>(`/invoices/${id}`), enabled: !!id, ...LIVE });
 export const useApprovals  = () => useQuery({ queryKey: ["approvals"],  queryFn: () => api.get<Approval[]>("/approvals"), ...LIVE });
 export const useAuditLog   = () => useQuery({ queryKey: ["logs"],       queryFn: () => api.get<AuditEntry[]>("/logs"), ...LIVE });
+export const useMySubscription = () =>
+  useQuery({ queryKey: ["billing-subscription"], queryFn: () => api.get<MySubscription>("/billing/subscription") });
+export const useMyPayments = () =>
+  useQuery({ queryKey: ["billing-payments"], queryFn: () => api.get<MyPayment[]>("/billing/payments") });
 
 export type ConvSummary = { id: string; title: string; created_at: string; message_count: number; user_id: string | null };
 export type ConvDetail  = { id: string; title: string; created_at: string;

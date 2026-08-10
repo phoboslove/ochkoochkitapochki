@@ -43,6 +43,7 @@ export const api = {
   post:   <T>(p: string, body?: unknown) => request<T>(p, { method: "POST", body: JSON.stringify(body ?? {}) }),
   patch:  <T>(p: string, body?: unknown) => request<T>(p, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
   put:    <T>(p: string, body?: unknown) => request<T>(p, { method: "PUT", body: JSON.stringify(body ?? {}) }),
+  delete: <T>(p: string) => request<T>(p, { method: "DELETE" }),
   upload: <T>(p: string, form: FormData) => request<T>(p, { method: "POST", body: form }),
   postNoAuth: <T>(p: string, body?: unknown) =>
     request<T>(p, { method: "POST", body: JSON.stringify(body ?? {}) }, { auth: false }),
@@ -51,7 +52,10 @@ export const api = {
 
 // Types
 export type Role = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
-export type Me = { id: string; email: string; name: string | null; role: Role; company_id: string };
+export type Me = {
+  id: string; email: string; name: string | null; role: Role; company_id: string;
+  is_platform_admin?: boolean;
+};
 
 export type Invoice = {
   id: string; number: string; client_id: string | null;
@@ -108,4 +112,61 @@ export type UsageAnalytics = {
 export type ToolManifest = {
   name: string; description: string; danger: "read" | "write" | "financial";
   min_role: string; requires_approval: boolean;
+};
+
+// ── Billing (client-facing) ─────────────────────────────────────────────
+
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "suspended" | "cancelled";
+
+export type MySubscription = {
+  plan: { code: string; name: string; price_amount: number; price_currency: string; billing_period: string };
+  status: SubscriptionStatus;
+  period_start: string; period_end: string;
+  days_until_period_end: number;
+  grace_period_days: number;
+  days_until_suspend: number | null;
+  renewal_method: string;
+  usage: { documents_used: number; documents_limit: number };
+  limits: { documents_per_month: number; users: number; templates: number };
+};
+
+export type MyPayment = {
+  id: string; amount: number; currency: string; status: string; method: string;
+  comment: string | null; paid_at: string | null; created_at: string;
+};
+
+// ── Admin ────────────────────────────────────────────────────────────────
+
+export type AdminDashboard = {
+  companies: { total: number; active: number; trialing: number; past_due: number; suspended: number; cancelled: number };
+  documents_this_month: number;
+  mrr: number; mrr_currency: string;
+  top_companies: { company_id: string; company_name: string; documents_this_month: number }[];
+};
+
+export type AdminCompanyListItem = {
+  id: string; name: string; bin: string | null; created_at: string; users_count: number;
+  subscription: { status: SubscriptionStatus; period_end: string; plan_code: string; plan_name: string } | null;
+};
+
+export type AdminCompanyDetail = {
+  company: { id: string; name: string; bin: string | null; country_code: string; created_at: string };
+  subscription: {
+    id: string; status: SubscriptionStatus; period_start: string; period_end: string;
+    grace_period_days: number; renewal_method: string;
+    plan: { id: string; code: string; name: string; price_amount: number; price_currency: string;
+             limit_documents_per_month: number; limit_users: number; limit_templates: number };
+    usage: { documents_used: number; documents_limit: number };
+  } | null;
+  users: { id: string; email: string; name: string | null; role: string; active: boolean; created_at: string }[];
+  payments: MyPayment[];
+  usage_by_month: { period: string; documents_count: number }[];
+  audit_trail: { id: number; actor_type: string; actor_id: string | null; action: string;
+                 resource: string | null; meta: Record<string, any>; at: string }[];
+};
+
+export type AdminPlan = {
+  id: string; code: string; name: string; price_amount: number; price_currency: string;
+  billing_period: string; limit_documents_per_month: number; limit_users: number;
+  limit_templates: number; allowed_integrations: string[] | null; is_active: boolean; sort_order: number;
 };

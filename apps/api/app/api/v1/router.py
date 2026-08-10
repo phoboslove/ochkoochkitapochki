@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     integrations, invitations, invoices, logs, ops, recovery, reports, search,
     knowledge, settings as settings_ep, support, telegram, templates, webhooks, workflows,
 )
+from app.api.v1.endpoints import admin as admin_ep
 
 api_router = APIRouter()
 api_router.include_router(auth.router,         prefix="/auth",         tags=["auth"])
@@ -32,3 +33,4 @@ api_router.include_router(support.router,      prefix="/support",      tags=["su
 api_router.include_router(settings_ep.router,  prefix="/settings",     tags=["settings"])
 api_router.include_router(knowledge.router,    prefix="/knowledge",    tags=["knowledge"])
 api_router.include_router(billing.router,      prefix="/billing",      tags=["billing"])
+api_router.include_router(admin_ep.router,     prefix="/admin",        tags=["admin"])

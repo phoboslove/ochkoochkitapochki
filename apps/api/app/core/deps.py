@@ -19,6 +19,7 @@ class CurrentUser:
     role: str
     email: str
     name: str | None = None
+    is_platform_admin: bool = False
 
     def has_role(self, *allowed: str) -> bool:
         return self.role in allowed
@@ -41,7 +42,10 @@ async def get_current_user(
     user = await session.get(User, payload["sub"])
     if not user or not user.active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user inactive")
-    return CurrentUser(id=user.id, company_id=user.company_id, role=user.role, email=user.email, name=user.name)
+    return CurrentUser(
+        id=user.id, company_id=user.company_id, role=user.role, email=user.email,
+        name=user.name, is_platform_admin=user.is_platform_admin,
+    )
 
 
 def require_role(*allowed: str):
@@ -60,3 +64,11 @@ def require_role(*allowed: str):
 require_member = require_role("MEMBER", "ADMIN", "OWNER")
 require_admin  = require_role("ADMIN", "OWNER")
 require_owner  = require_role("OWNER")
+
+
+async def require_platform_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """404, not 403 — a platform-admin surface should look like it doesn't
+    exist to anyone who isn't one, not like a locked door."""
+    if not user.is_platform_admin:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+    return user
