@@ -57,6 +57,7 @@ const ru = {
   "settings.tab.knowledge":     "База знаний",
   "settings.tab.security":      "Безопасность",
   "settings.tab.language":      "Язык",
+  "settings.tab.billing":       "Подписка",
 
   // Settings — language section
   "settings.language.title":       "Язык интерфейса",
@@ -111,6 +112,7 @@ const en: typeof ru = {
   "settings.tab.knowledge":     "Knowledge",
   "settings.tab.security":      "Security",
   "settings.tab.language":      "Language",
+  "settings.tab.billing":       "Subscription",
 
   "settings.language.title":       "Interface language",
   "settings.language.hint":        "Selection is saved in this browser. Switch is applied instantly.",

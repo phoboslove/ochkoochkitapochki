@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusDot } from "@/components/ui/badge";
-import { useApprovals, useCompany, useLogout, useMe } from "@/lib/hooks";
+import { useApprovals, useLogout, useMe, useMySubscription } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { CommandPalette, useCommandPaletteShortcut } from "@/components/CommandPalette";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
@@ -15,7 +15,7 @@ import { useT } from "@/lib/i18n";
 export function Topbar() {
   const t = useT();
   const { data: me } = useMe();
-  const { data: company } = useCompany();
+  const { data: subscription } = useMySubscription();
   const { data: approvals } = useApprovals();
   const logout = useLogout();
   const density = useWorkspace((s) => s.density);
@@ -42,9 +42,9 @@ export function Topbar() {
       </button>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {company?.plan && (
-          <Badge tone={company.plan === "free" ? "neutral" : "info"} className="hidden sm:inline-flex uppercase tracking-wider">
-            {company.plan}
+        {subscription?.plan && (
+          <Badge tone={subscription.plan.code === "trial" ? "neutral" : "info"} className="hidden sm:inline-flex uppercase tracking-wider">
+            {subscription.plan.code}
           </Badge>
         )}
 

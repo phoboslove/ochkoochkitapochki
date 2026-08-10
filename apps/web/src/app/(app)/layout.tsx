@@ -10,6 +10,7 @@ import { AlertWatcher } from "@/components/AlertWatcher";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { BetaBanner } from "@/components/BetaBanner";
+import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { SupportWidget } from "@/components/SupportWidget";
 import { WorkspaceEffects } from "@/lib/workspace";
 import { I18nRehydrate } from "@/lib/i18n";
@@ -33,6 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <I18nRehydrate />
       <div className="flex h-screen w-screen overflow-hidden flex-col bg-background">
         <BetaBanner />
+        <SubscriptionBanner />
         <OfflineBanner />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />

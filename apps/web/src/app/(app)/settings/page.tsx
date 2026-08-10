@@ -3,10 +3,11 @@
 import { useState } from "react";
 import {
   Building2, Calculator, Palette, FileType2, ShieldCheck, Bell, Plug,
-  BookOpen, Lock, Languages,
+  BookOpen, Lock, Languages, CreditCard,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Field, Text, Toggle, Select } from "@/components/settings/SettingsField";
 import { SaveIndicator } from "@/components/settings/SaveIndicator";
 import { KnowledgeBase } from "@/components/settings/KnowledgeBase";
@@ -14,7 +15,9 @@ import { TemplateManager } from "@/components/TemplateManager";
 import { TelegramPanel } from "@/components/TelegramPanel";
 import { LanguagePicker } from "@/components/LanguagePicker";
 import { useBusinessContext, useSectionEditor } from "@/lib/settings";
-import { useUploadLogo } from "@/lib/hooks";
+import { useUploadLogo, useMySubscription, useMyPayments } from "@/lib/hooks";
+import { formatKZT } from "@/lib/utils";
+import type { SubscriptionStatus } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -30,6 +33,7 @@ const TABS = [
   { key: "integrations",  labelKey: "settings.tab.integrations",  icon: Plug },
   { key: "knowledge",     labelKey: "settings.tab.knowledge",     icon: BookOpen },
   { key: "language",      labelKey: "settings.tab.language",      icon: Languages },
+  { key: "billing",       labelKey: "settings.tab.billing",       icon: CreditCard },
   { key: "security",      labelKey: "settings.tab.security",      icon: Lock },
 ] as const satisfies readonly { key: string; labelKey: TranslationKey; icon: any }[];
 type TabKey = typeof TABS[number]["key"];
@@ -72,6 +76,7 @@ export default function SettingsPage() {
           {tab === "integrations"  && <IntegrationsHint />}
           {tab === "knowledge"     && <KnowledgeBase />}
           {tab === "language"      && <LanguagePicker />}
+          {tab === "billing"       && <BillingSection />}
           {tab === "security"      && <SecurityHint />}
           {tab === "company" && <TelegramPanel />}
         </div>
@@ -309,6 +314,85 @@ function NotificationsSection({ ctx }: { ctx: any }) {
         </div>
       </div>
     </SectionShell>
+  );
+}
+
+const STATUS_TONE: Record<SubscriptionStatus, "success" | "info" | "warn" | "danger" | "neutral"> = {
+  active: "success", trialing: "info", past_due: "warn", suspended: "danger", cancelled: "neutral",
+};
+const STATUS_LABEL: Record<SubscriptionStatus, string> = {
+  active: "Активна", trialing: "Триал", past_due: "Просрочена", suspended: "Приостановлена", cancelled: "Отменена",
+};
+
+function BillingSection() {
+  const { data: sub, isLoading } = useMySubscription();
+  const { data: payments } = useMyPayments();
+
+  if (isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Загрузка…</CardContent></Card>;
+  if (!sub) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Нет данных о подписке.</CardContent></Card>;
+
+  const pct = Math.min(100, Math.round((sub.usage.documents_used / Math.max(sub.usage.documents_limit, 1)) * 100));
+  const nearLimit = pct >= 80;
+
+  return (
+    <div className="space-y-6">
+      <SectionShell
+        title="Текущий тариф"
+        hint="Лимиты и использование за этот календарный месяц."
+        status={<Badge tone={STATUS_TONE[sub.status]}>{STATUS_LABEL[sub.status]}</Badge>}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-lg font-semibold">{sub.plan.name}</div>
+            <div className="text-sm text-muted-foreground">
+              {formatKZT(sub.plan.price_amount)} {sub.plan.price_currency} / {sub.plan.billing_period === "month" ? "мес" : "год"}
+            </div>
+          </div>
+          <a href="mailto:sales@wagwan1.com?subject=Продление подписки">
+            <button className="h-8 px-3 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] text-[13px] font-medium hover:bg-[hsl(var(--brand)/0.92)]">
+              Продлить
+            </button>
+          </a>
+        </div>
+
+        <div className="mb-1 flex items-center justify-between text-[12.5px]">
+          <span className="text-muted-foreground">Документов в этом месяце</span>
+          <span className="tabular-nums font-medium">{sub.usage.documents_used} / {sub.usage.documents_limit}</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={"h-full rounded-full transition-[width] " + (nearLimit ? "bg-[hsl(var(--warning))]" : "bg-[hsl(var(--brand))]")}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        <dl className="grid grid-cols-2 gap-y-2 mt-5 text-[13px]">
+          <dt className="text-muted-foreground">Период действует до</dt>
+          <dd>{new Date(sub.period_end).toLocaleString("ru-RU")}</dd>
+          <dt className="text-muted-foreground">Пользователей по тарифу</dt>
+          <dd>{sub.limits.users}</dd>
+          <dt className="text-muted-foreground">Шаблонов по тарифу</dt>
+          <dd>{sub.limits.templates}</dd>
+        </dl>
+      </SectionShell>
+
+      <SectionShell title="История платежей" status={null}>
+        {!payments || payments.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Платежей ещё не было.</div>
+        ) : (
+          <ul className="space-y-2 text-[13px]">
+            {payments.map((p) => (
+              <li key={p.id} className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {new Date(p.created_at).toLocaleDateString("ru-RU")} {p.comment && `· ${p.comment}`}
+                </span>
+                <span className="tabular-nums font-medium">{formatKZT(p.amount)} {p.currency}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionShell>
+    </div>
   );
 }
 
