@@ -12,6 +12,7 @@ from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user, require_admin
 from app.db.models import Template
 from app.services.audit.logger import AuditLogger
+from app.services.billing.deps import require_active_subscription
 from app.services.storage import get_storage
 from app.services.templates.converter import (
     convert_to, find_soffice, is_available, ConverterUnavailable, TARGET_FOR,
@@ -222,6 +223,7 @@ async def upload_file(
     kind: str = Form(""),
     is_default: bool = Form(False),
     user: CurrentUser = Depends(require_admin),
+    _sub: CurrentUser = Depends(require_active_subscription),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     fmt = _detect_format(file)
@@ -250,10 +252,11 @@ async def upload_docx_compat(
     kind: str = Form("invoice"),
     is_default: bool = Form(False),
     user: CurrentUser = Depends(require_admin),
+    _sub: CurrentUser = Depends(require_active_subscription),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     return await upload_file(file=file, name=name, kind=kind, is_default=is_default,
-                             user=user, session=session)
+                             user=user, _sub=_sub, session=session)
 
 
 class MappingIn(BaseModel):

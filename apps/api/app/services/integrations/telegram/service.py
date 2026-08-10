@@ -17,6 +17,7 @@ from app.core.logging import log
 from app.db.models import Approval, Conversation, TelegramLink, User
 from app.services.ai.orchestrator import AIOrchestrator
 from app.services.audit.logger import AuditLogger
+from app.services.billing.exceptions import DocumentLimitExceededError, SubscriptionSuspendedError
 from app.services.integrations.telegram import (
     InlineButton, TelegramDocument, TelegramMessage, build_telegram_provider,
 )
@@ -353,6 +354,12 @@ async def _confirm_pending_proposal(
                 "notes":            payload.get("notes"),
             },
         )
+    except (SubscriptionSuspendedError, DocumentLimitExceededError) as exc:
+        log.info("telegram.proposal_generation_blocked",
+                  company_id=user.company_id, proposal_id=claimed.id, reason=type(exc).__name__)
+        await mark_completed(session, proposal_id=claimed.id, document_id=None)
+        await _safe_send(provider, chat_id, f"⚠️ {exc}")
+        return
     except Exception as exc:  # noqa: BLE001
         log.exception("telegram.proposal_generation_failed",
                        company_id=user.company_id, proposal_id=claimed.id)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
-    ai, anomalies, approvals, auth, clients, companies, conversations, documents, files,
+    ai, anomalies, approvals, auth, billing, clients, companies, conversations, documents, files,
     integrations, invitations, invoices, logs, ops, recovery, reports, search,
     knowledge, settings as settings_ep, support, telegram, templates, webhooks, workflows,
 )
@@ -31,3 +31,4 @@ api_router.include_router(telegram.router,     prefix="/telegram",     tags=["te
 api_router.include_router(support.router,      prefix="/support",      tags=["support"])
 api_router.include_router(settings_ep.router,  prefix="/settings",     tags=["settings"])
 api_router.include_router(knowledge.router,    prefix="/knowledge",    tags=["knowledge"])
+api_router.include_router(billing.router,      prefix="/billing",      tags=["billing"])

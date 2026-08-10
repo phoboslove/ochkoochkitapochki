@@ -26,7 +26,9 @@ class Company(Base):
     # Company memory — branding, invoice defaults, integrations config snapshots, etc.
     settings:  Mapped[dict] = mapped_column(JSON, default=dict)
     logo_key:  Mapped[str | None] = mapped_column(String, nullable=True)
-    # Billing-ready stub (no Stripe yet). Plans gate features via app.services.plans.gate.
+    # Legacy stub column — superseded by Subscription.plan_id (see
+    # app/services/billing/). No longer read anywhere; kept only so old
+    # rows don't need a backfill of this specific column.
     plan:      Mapped[str] = mapped_column(String, default="free")
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at:Mapped[datetime] = mapped_column(DateTime, default=_now)

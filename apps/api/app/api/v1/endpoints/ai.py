@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.core.deps import CurrentUser, get_current_user
 from app.services.ai.orchestrator import AIOrchestrator
+from app.services.billing.deps import require_active_subscription
 
 router = APIRouter()
 orchestrator = AIOrchestrator()
@@ -30,7 +31,7 @@ class ChatOut(BaseModel):
 @router.post("/chat", response_model=ChatOut)
 async def chat(
     body: ChatIn,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(require_active_subscription),
     session: AsyncSession = Depends(get_session),
 ) -> ChatOut:
     result = await orchestrator.handle_message(

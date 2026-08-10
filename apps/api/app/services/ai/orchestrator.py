@@ -222,6 +222,9 @@ class AIOrchestrator:
     async def _invoke_tool(self, session, company_id, actor_id, cid, name, args) -> dict[str, Any]:
         from app.services.ai.tools.registry import ToolDenied
         from app.services.audit.logger import AuditLogger
+        from app.services.billing.exceptions import (
+            DocumentLimitExceededError, SubscriptionSuspendedError,
+        )
         audit = AuditLogger()
         tool = self.tools.get(name)
         try:
@@ -240,7 +243,13 @@ class AIOrchestrator:
             session, company_id=company_id, actor_type="ai", actor_id=actor_id,
             action="ai.tool_invoked", meta={"tool": name, "danger": tool.danger, "args": args},
         )
-        return await tool.run(session, company_id, actor_id, validated, conversation_id=cid)
+        try:
+            return await tool.run(session, company_id, actor_id, validated, conversation_id=cid)
+        except SubscriptionSuspendedError as exc:
+            return {"error": "subscription_suspended", "message": str(exc)}
+        except DocumentLimitExceededError as exc:
+            return {"error": "document_limit_exceeded", "message": str(exc),
+                    "used": exc.used, "limit": exc.limit}
 
     async def _ensure_conversation(self, session, company_id, actor_id, conversation_id) -> str:
         if conversation_id:

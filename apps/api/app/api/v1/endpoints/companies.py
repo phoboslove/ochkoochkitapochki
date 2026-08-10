@@ -112,8 +112,19 @@ async def usage_analytics(
     def total(prefix: str) -> int:
         return sum(v for k, v in counts.items() if k.startswith(prefix))
 
-    from app.services.plans.gate import limits_for
-    limits = limits_for((await session.get(Company, user.company_id)).plan)  # type: ignore[union-attr]
+    from app.services.billing.repo import get_subscription_and_plan
+    try:
+        _sub, plan = await get_subscription_and_plan(session, user.company_id)
+        plan_block = {
+            "name": plan.name,
+            "limits": {
+                "documents_per_month": plan.limit_documents_per_month,
+                "seats":               plan.limit_users,
+                "templates":           plan.limit_templates,
+            },
+        }
+    except LookupError:
+        plan_block = None
     return {
         "window_days": 30,
         "ai_tool_invocations": counts.get("ai.tool_invoked", 0),
@@ -125,18 +136,7 @@ async def usage_analytics(
         "documents_uploaded":  counts.get("document.upload", 0),
         "workflow_failures":   total("workflow.run_failed"),
         "by_action": counts,
-        "plan": {
-            "name": limits.name,
-            "limits": {
-                "invoices_per_month":  limits.invoices_per_month,
-                "documents_per_month": limits.documents_per_month,
-                "seats":               limits.seats,
-            },
-            "features": {
-                "ai_chat": limits.ai_chat, "custom_templates": limits.custom_templates,
-                "semantic_search": limits.semantic_search,
-            },
-        },
+        "plan": plan_block,
     }
 
 

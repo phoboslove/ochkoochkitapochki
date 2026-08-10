@@ -89,7 +89,7 @@ export type IntegrationItem = {
 export type CompanyOut = {
   id: string; name: string; bin: string | null; tax_mode: string | null;
   country_code: string; settings: Record<string, any>; logo_url: string | null;
-  plan: "free" | "starter" | "growth" | "business"; onboarded: boolean;
+  plan: string; onboarded: boolean;
 };
 
 export type OnboardingStep = { key: string; label: string; done: boolean; optional?: boolean };
@@ -102,7 +102,7 @@ export type UsageAnalytics = {
   invoices_created: number; invoices_sent: number;
   documents_uploaded: number; workflow_failures: number;
   by_action: Record<string, number>;
-  plan: { name: string; limits: Record<string, number>; features: Record<string, boolean> };
+  plan: { name: string; limits: Record<string, number> } | null;
 };
 
 export type ToolManifest = {

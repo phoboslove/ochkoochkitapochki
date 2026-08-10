@@ -51,10 +51,13 @@ async def connect(
 ) -> dict:
     if provider not in _KNOWN:
         raise HTTPException(400, "unknown provider")
-    from app.db.models import Company
-    from app.services.plans.gate import integration_allowed
-    company = await session.get(Company, user.company_id)
-    if not integration_allowed(company.plan if company else "free", provider):
+    from app.services.billing.repo import get_subscription_and_plan
+    try:
+        _sub, plan = await get_subscription_and_plan(session, user.company_id)
+        allowed = plan.allowed_integrations
+    except LookupError:
+        allowed = None  # no subscription row — don't block on a data bug
+    if allowed is not None and provider not in allowed:
         raise HTTPException(402, f"{provider} requires a higher plan")
     integration = await session.scalar(
         select(Integration).where(Integration.company_id == user.company_id, Integration.provider == provider),

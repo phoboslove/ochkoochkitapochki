@@ -44,12 +44,27 @@ async def _startup() -> None:
 @app.exception_handler(Exception)
 async def _unhandled(request: Request, exc: Exception):
     from app.services.limits.usage import QuotaExceeded
+    from app.services.billing.exceptions import (
+        DocumentLimitExceededError, SubscriptionSuspendedError,
+    )
     rid = getattr(request.state, "request_id", "-")
     if isinstance(exc, QuotaExceeded):
         return JSONResponse(
             status_code=402,
             content={"error": "quota_exceeded", "feature": exc.feature, "used": exc.used,
                      "limit": exc.limit, "support_id": rid},
+        )
+    if isinstance(exc, SubscriptionSuspendedError):
+        return JSONResponse(
+            status_code=402,
+            content={"error": "subscription_suspended", "message": str(exc),
+                     "period_end": exc.period_end.isoformat(), "support_id": rid},
+        )
+    if isinstance(exc, DocumentLimitExceededError):
+        return JSONResponse(
+            status_code=402,
+            content={"error": "document_limit_exceeded", "message": str(exc),
+                     "used": exc.used, "limit": exc.limit, "support_id": rid},
         )
     log.error("unhandled_exception", request_id=rid, error=str(exc))
     return JSONResponse(

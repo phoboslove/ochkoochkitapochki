@@ -62,6 +62,12 @@ async def register(body: RegisterIn, session: AsyncSession = Depends(get_session
     session.add_all([company, user])
     await session.flush()
 
+    # Every company must have a subscription from the moment it exists —
+    # enforcement (app/services/billing/enforce.py) assumes this and treats
+    # a missing subscription as a data-integrity bug, not a normal state.
+    from app.services.billing.repo import create_trial_subscription
+    await create_trial_subscription(session, company.id)
+
     # First-time-user experience: seed verified commercial RU templates so
     # the very first /documents/generate call returns a real DOCX, not an
     # HTML fallback. Best-effort — registration must not fail because of

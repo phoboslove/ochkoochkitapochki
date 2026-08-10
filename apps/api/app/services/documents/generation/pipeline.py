@@ -115,6 +115,13 @@ class GenerationPipeline:
         if kind not in SUPPORTED_KINDS:
             raise ValueError(f"unsupported kind: {kind}")
 
+        # Single enforcement choke point — every caller (AI tool, direct
+        # REST endpoint, Telegram) reaches generation through this method,
+        # so the subscription-status + monthly-limit check lives here once
+        # rather than being duplicated (and risking drift) at each call site.
+        from app.services.billing.enforce import enforce_generation_allowed
+        await enforce_generation_allowed(session, company_id)
+
         t0 = perf_counter()
         diag = DiagnosticsCollector()
         fallback_used = False
