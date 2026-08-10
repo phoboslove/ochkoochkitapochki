@@ -142,7 +142,7 @@ async def handle_update(session: AsyncSession, *, company_id: str, update: dict[
                     f"✅ Linked to *{user.email}*. You can now ask things like _\"show unpaid invoices\"_.")
                 return
         await _safe_send(provider, chat_id,
-            "Welcome to Buchuchet. Open the web app → Settings → *Connect Telegram* to get a one-time link code.")
+            "Welcome to Wagwan. Open the web app → Settings → *Connect Telegram* to get a one-time link code.")
         return
 
     if text == "/help":
@@ -802,7 +802,7 @@ async def _send_generated_document(
 
 
 _HELP = (
-    "*Buchuchet bot* — operational assistant.\n\n"
+    "*Wagwan bot* — operational assistant.\n\n"
     "Try:\n"
     "• `Create invoice for TOO ABC 450000`\n"
     "• `Show unpaid invoices`\n"

@@ -251,7 +251,7 @@ function DisconnectedView({
           <code className="font-mono">https://что-то.ngrok-free.app</code>.
         </li>
         <li>
-          Вставь ниже токен и публичный URL. Buchuchet проверит токен через Telegram
+          Вставь ниже токен и публичный URL. Wagwan проверит токен через Telegram
           и зарегистрирует webhook автоматически.
         </li>
       </ol>
@@ -284,7 +284,7 @@ function DisconnectedView({
 
       <div className="text-[10.5px] text-muted-foreground/80">
         Токен хранится в БД, не показывается в ответах API и не пишется в логи. Перед сохранением
-        Buchuchet вызывает Telegram <code className="font-mono">getMe</code> — если токен невалиден,
+        Wagwan вызывает Telegram <code className="font-mono">getMe</code> — если токен невалиден,
         ничего не сохраняется.
       </div>
     </div>

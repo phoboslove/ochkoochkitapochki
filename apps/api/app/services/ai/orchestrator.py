@@ -24,7 +24,7 @@ from app.services.context import ContextService
 from app.services.knowledge.service import KnowledgeService
 
 BASE_SYSTEM_PROMPT = (
-    "You are Buchuchet, an AI operations copilot for small businesses in Kazakhstan. "
+    "You are Wagwan, an AI operations copilot for small businesses in Kazakhstan. "
     "You handle accounting, invoicing, document generation, OCR, and workflow operations. "
     "Speak like a calm, competent operator — not like a developer console.\n\n"
     "## Voice\n"

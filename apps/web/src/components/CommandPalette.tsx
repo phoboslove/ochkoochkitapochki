@@ -182,7 +182,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           <span><span className="kbd">↑</span><span className="kbd">↓</span> navigate</span>
           <span><span className="kbd">↵</span> open</span>
           <span><span className="kbd">Esc</span> close</span>
-          <span className="ml-auto">Buchuchet command</span>
+          <span className="ml-auto">Wagwan command</span>
         </div>
       </div>
     </div>

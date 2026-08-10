@@ -36,7 +36,7 @@ export default function OnboardingPage() {
 
   const finish = () =>
     complete.mutate(undefined, {
-      onSuccess: () => { toast.success("All set", "Welcome to Buchuchet"); router.replace("/dashboard"); },
+      onSuccess: () => { toast.success("All set", "Welcome to Wagwan"); router.replace("/dashboard"); },
     });
 
   const doneCount = state?.steps.filter((s) => s.done).length ?? 0;
@@ -94,7 +94,7 @@ export default function OnboardingPage() {
           <Button onClick={() => setStep(step + 1)}>Next</Button>
         ) : (
           <Button onClick={finish} disabled={complete.isPending}>
-            {complete.isPending ? "Finishing…" : "Enter Buchuchet"}
+            {complete.isPending ? "Finishing…" : "Enter Wagwan"}
           </Button>
         )}
       </div>

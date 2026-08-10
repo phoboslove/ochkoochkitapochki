@@ -25,9 +25,9 @@ export default function LoginPage() {
 
       <div className="relative w-[380px] max-w-full">
         <div className="flex items-center gap-2 mb-6">
-          <div className="h-8 w-8 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[13px] font-semibold shadow-brand">B</div>
+          <div className="h-8 w-8 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[13px] font-semibold shadow-brand">W</div>
           <div className="leading-tight">
-            <div className="text-[15px] font-semibold">Buchuchet</div>
+            <div className="text-[15px] font-semibold">Wagwan</div>
             <div className="text-[11px] text-muted-foreground">AI backoffice operating system</div>
           </div>
         </div>

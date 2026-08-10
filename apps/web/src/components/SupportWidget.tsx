@@ -14,7 +14,7 @@ const STORAGE_KEY = "buchuchet.support.history";
 const GREETING: Msg = {
   role: "assistant",
   content:
-    "Hi! I'm the Buchuchet support assistant — here to help you find your way around.\n\n" +
+    "Hi! I'm the Wagwan support assistant — here to help you find your way around.\n\n" +
     "Quick tips:\n" +
     "• **AI Assistant** in the sidebar runs real actions (\"Create invoice for TOO ABC for 450000\").\n" +
     "• **Approvals** is where invoices and AI actions wait for your OK.\n" +
@@ -121,7 +121,7 @@ export function SupportWidget() {
           <LifeBuoy className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold leading-none">Buchuchet support</div>
+          <div className="text-sm font-semibold leading-none">Wagwan support</div>
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
             <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" /> Online · 24/7
           </div>
@@ -180,7 +180,7 @@ export function SupportWidget() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything about Buchuchet…"
+          placeholder="Ask anything about Wagwan…"
           className="flex-1"
         />
         <Button type="submit" size="icon" disabled={ask.isPending} aria-label="Send">

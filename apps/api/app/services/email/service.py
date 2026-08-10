@@ -68,7 +68,7 @@ class PostmarkMailer(Mailer):
 
 
 def get_mailer() -> Mailer:
-    sender = os.environ.get("EMAIL_FROM", "Buchuchet <noreply@example.com>")
+    sender = os.environ.get("EMAIL_FROM", "Wagwan <noreply@example.com>")
     provider = os.environ.get("EMAIL_PROVIDER", "console").lower()
     if provider == "resend" and os.environ.get("RESEND_API_KEY"):
         return ResendMailer(os.environ["RESEND_API_KEY"], sender)
@@ -85,9 +85,9 @@ def _base_url() -> str:
 
 def render_invitation(*, email: str, token: str, company_name: str, role: str) -> EmailMessage:
     link = f"{_base_url()}/accept-invite?token={token}"
-    text = (f"You've been invited to {company_name} on Buchuchet as {role}.\n\n"
+    text = (f"You've been invited to {company_name} on Wagwan as {role}.\n\n"
             f"Accept here: {link}\n\nThis link expires in 7 days.")
-    html = f"""<p>You've been invited to <b>{company_name}</b> on Buchuchet as <b>{role}</b>.</p>
+    html = f"""<p>You've been invited to <b>{company_name}</b> on Wagwan as <b>{role}</b>.</p>
 <p><a href="{link}">Accept your invite</a> · expires in 7 days.</p>"""
     return EmailMessage(to=email, subject=f"You're invited to {company_name}", text=text, html=html, tag="invitation")
 
@@ -104,7 +104,7 @@ def render_approval_request(*, email: str, summary: str, approval_id: str) -> Em
 def render_overdue(*, email: str, number: str, total: str, currency: str) -> EmailMessage:
     return EmailMessage(
         to=email, subject=f"Invoice {number} is overdue",
-        text=f"Invoice {number} ({total} {currency}) is past due. Take action in Buchuchet.",
+        text=f"Invoice {number} ({total} {currency}) is past due. Take action in Wagwan.",
         tag="overdue",
     )
 

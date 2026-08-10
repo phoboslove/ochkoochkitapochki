@@ -81,12 +81,12 @@ export function Sidebar() {
         collapsed ? "justify-center px-2" : "",
       )}>
         <div className="h-7 w-7 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[12px] font-semibold shadow-brand">
-          B
+          W
         </div>
         {!collapsed && (
           <>
             <div className="leading-tight">
-              <div className="text-[13px] font-semibold">Buchuchet</div>
+              <div className="text-[13px] font-semibold">Wagwan</div>
               <div className="text-[10px] text-muted-foreground -mt-0.5">{t("sidebar.brand_tagline")}</div>
             </div>
             <button
