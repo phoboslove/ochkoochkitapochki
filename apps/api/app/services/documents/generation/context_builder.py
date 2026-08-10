@@ -103,9 +103,14 @@ def build_canonical_context(
         "signature_block":  "",
         "notes":            overrides.get("notes") or "",
     }
-    # Pull in any explicit canonical overrides last.
+    # Pull in any explicit canonical overrides last — EXCEPT the money
+    # display fields, which are already derived above from intent.total
+    # (itself already override-aware, see _build_intent). Re-applying the
+    # raw override here would clobber the "{:,.2f}"-formatted string with
+    # the caller's unformatted number (e.g. "275 000.00" -> "275000.0").
+    _COMPUTED_MONEY_KEYS = {"subtotal", "vat", "total"}
     for k, v in (overrides or {}).items():
-        if k in flat and v not in (None, ""):
+        if k in flat and k not in _COMPUTED_MONEY_KEYS and v not in (None, ""):
             flat[k] = v
 
     # Nested aliases.
