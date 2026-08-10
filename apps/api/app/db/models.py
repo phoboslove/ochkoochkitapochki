@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, ForeignKey, Numeric, String, Text, DateTime, Boolean, Integer
+from sqlalchemy import JSON, ForeignKey, Numeric, String, Text, DateTime, Boolean, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -41,6 +41,9 @@ class User(Base):
     role:         Mapped[str] = mapped_column(String, default="MEMBER")  # OWNER|ADMIN|MEMBER|VIEWER
     password_hash:Mapped[str] = mapped_column(String)
     active:       Mapped[bool] = mapped_column(Boolean, default=True)
+    # Platform-level superadmin flag — orthogonal to the company-scoped `role`
+    # above. Runs the business (billing, all companies), not a tenant role.
+    is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     telegram_user_id:  Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     telegram_username: Mapped[str | None] = mapped_column(String, nullable=True)
     notify_telegram:   Mapped[bool] = mapped_column(Boolean, default=True)
@@ -57,6 +60,85 @@ class TelegramLink(Base):
     status:     Mapped[str] = mapped_column(String, default="PENDING")  # PENDING|USED|EXPIRED
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+# ─── Billing / subscriptions ─────────────────────────────────────────────────
+
+class Plan(Base):
+    """Admin-editable subscription tier. Replaces the old hardcoded
+    ``app/services/plans/gate.py`` dict — plans are now DB rows so pricing
+    and limits change without a deploy."""
+    __tablename__ = "plans"
+    id:            Mapped[str] = mapped_column(String, primary_key=True)
+    code:          Mapped[str] = mapped_column(String, unique=True, index=True)  # trial|basic|pro|enterprise|...
+    name:          Mapped[str] = mapped_column(String)
+    price_amount:  Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    price_currency:Mapped[str] = mapped_column(String, default="KZT")
+    billing_period:Mapped[str] = mapped_column(String, default="month")  # month|year
+    limit_documents_per_month: Mapped[int] = mapped_column(Integer, default=0)
+    limit_users:               Mapped[int] = mapped_column(Integer, default=0)
+    limit_templates:           Mapped[int] = mapped_column(Integer, default=0)
+    # null = unrestricted; else list[str] of allowed integration provider keys.
+    allowed_integrations: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    is_active:     Mapped[bool] = mapped_column(Boolean, default=True)  # soft-disable, never delete (FK integrity)
+    sort_order:    Mapped[int] = mapped_column(Integer, default=0)
+    created_at:    Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at:    Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class Subscription(Base):
+    """One row per company, updated in place. Change history lives in
+    AuditLog (who/when) and Payment (money received) — not duplicated here."""
+    __tablename__ = "subscriptions"
+    id:               Mapped[str] = mapped_column(String, primary_key=True)
+    company_id:       Mapped[str] = mapped_column(ForeignKey("companies.id"), unique=True, index=True)
+    plan_id:          Mapped[str] = mapped_column(ForeignKey("plans.id"), index=True)
+    status:           Mapped[str] = mapped_column(String, default="trialing", index=True)
+    # trialing|active|past_due|suspended|cancelled
+    period_start:     Mapped[datetime] = mapped_column(DateTime, default=_now)
+    period_end:       Mapped[datetime] = mapped_column(DateTime)
+    renewal_method:   Mapped[str] = mapped_column(String, default="manual")
+    grace_period_days:Mapped[int] = mapped_column(Integer, default=5)
+    suspended_at:     Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_at:     Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at:       Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at:       Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+
+class Payment(Base):
+    """Payment history — manually recorded by an admin today; automated
+    gateways (Kaspi/CloudPayments) write to the same table later via
+    PaymentProvider, no schema change needed."""
+    __tablename__ = "payments"
+    id:              Mapped[str] = mapped_column(String, primary_key=True)
+    company_id:      Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    subscription_id: Mapped[str] = mapped_column(ForeignKey("subscriptions.id"), index=True)
+    amount:          Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency:        Mapped[str] = mapped_column(String, default="KZT")
+    status:          Mapped[str] = mapped_column(String, default="succeeded")  # pending|succeeded|failed|refunded
+    method:          Mapped[str] = mapped_column(String, default="manual")     # manual|kaspi|card|...
+    comment:         Mapped[str | None] = mapped_column(Text, nullable=True)
+    recorded_by:     Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    provider_ref:    Mapped[str | None] = mapped_column(String, nullable=True)
+    paid_at:         Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at:      Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class UsageCounter(Base):
+    """Atomic per-calendar-month document counter. Separate from AuditLog on
+    purpose: AuditLog is an append-only event log (slow to COUNT at scale,
+    not built for atomic increment-under-concurrency); this is a single
+    upserted row per (company, month) updated via one UPDATE statement."""
+    __tablename__ = "usage_counters"
+    id:              Mapped[str] = mapped_column(String, primary_key=True)
+    company_id:      Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    period:          Mapped[str] = mapped_column(String, index=True)  # "YYYY-MM"
+    documents_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at:      Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "period", name="uq_usage_counters_company_period"),
+    )
 
 
 # ─── CRM ─────────────────────────────────────────────────────────────────────
