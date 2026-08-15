@@ -46,12 +46,17 @@ const config: Config = {
         fadeIn:    { from: { opacity: "0" }, to: { opacity: "1" } },
         slideIn:   { from: { transform: "translateY(8px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
         shimmer:   { "100%": { transform: "translateX(100%)" } },
+        // Wordmark's SVG <text> ships letterSpacing="22" (px-equivalent
+        // user units) — animate from tighter tracking up to that exact
+        // resting value so the entrance settles into the mark's normal look.
+        splashTracking: { from: { opacity: "0", letterSpacing: "3px" }, to: { opacity: "1", letterSpacing: "22px" } },
       },
       animation: {
         in:      "in .18s ease-out",
         fadeIn:  "fadeIn .15s ease-out",
         slideIn: "slideIn .2s ease-out",
         shimmer: "shimmer 1.4s ease-in-out infinite",
+        splashTracking: "splashTracking 900ms cubic-bezier(0.16,1,0.3,1) both",
       },
     },
   },

@@ -352,4 +352,15 @@
     50%      { box-shadow: 0 0 0 6px hsl(var(--brand) / 0); }
   }
   .pulse-brand { animation: brand-pulse 2.2s ease-out infinite; }
+
+  /* Splash-screen wordmark entrance. CSS letter-spacing must be *specified*
+     directly on the SVG <text> to beat its own letterSpacing="22" attribute
+     — an ancestor's inherited value loses to an element's own specified
+     attribute, so this targets the inner elements, not the wrapper. */
+  .splash-wordmark svg text {
+    animation: splashTracking 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .splash-wordmark svg line {
+    animation: fadeIn 900ms ease-out 200ms both;
+  }
 }

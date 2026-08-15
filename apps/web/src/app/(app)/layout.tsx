@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { AuthGuard } from "@/components/AuthGuard";
+import { AppShellSplash } from "@/components/AppShellSplash";
 import { Toaster } from "@/components/Toaster";
 import { AlertWatcher } from "@/components/AlertWatcher";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -14,12 +15,16 @@ import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 import { SupportWidget } from "@/components/SupportWidget";
 import { WorkspaceEffects } from "@/lib/workspace";
 import { I18nRehydrate } from "@/lib/i18n";
-import { useOnboarding } from "@/lib/hooks";
+import { useOnboarding, useMe } from "@/lib/hooks";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const { data: onboarding } = useOnboarding();
+  // Gates the splash overlay — the identity check every app-shell page
+  // depends on, so "ready" means "the data behind this screen actually
+  // loaded", not a fixed delay.
+  const { isSuccess: meReady } = useMe();
 
   // Redirect only when user lands on the absolute root. Clicking Dashboard
   // explicitly should never bounce them back to the wizard.
@@ -30,6 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
+      <AppShellSplash ready={meReady} />
       <WorkspaceEffects />
       <I18nRehydrate />
       <div className="flex h-screen w-screen overflow-hidden flex-col bg-background">
