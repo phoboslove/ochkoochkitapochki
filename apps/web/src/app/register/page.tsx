@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { useRegister } from "@/lib/hooks";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const [bin, setBin] = useState("");
   const [errs, setErrs] = useState<FieldErrors>({});
   const [topErr, setTopErr] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   function validate(): FieldErrors {
     const e: FieldErrors = {};
@@ -57,6 +59,7 @@ export default function RegisterPage() {
         email: normalizedEmail,
         password,
         bin: bin.trim() || undefined,
+        turnstile_token: turnstileToken ?? undefined,
       },
       {
         onSuccess: () => router.replace(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`),
@@ -117,6 +120,8 @@ export default function RegisterPage() {
                   {topErr}
                 </div>
               )}
+
+              <TurnstileWidget onToken={setTurnstileToken} />
 
               <Button className="w-full" size="lg" type="submit" disabled={reg.isPending}>
                 {reg.isPending ? "Создаём аккаунт…" : "Создать аккаунт"}

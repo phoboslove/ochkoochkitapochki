@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { useLogin } from "@/lib/hooks";
 
 export default function LoginPage() {
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("demo@buchuchet.io");
   const [password, setPassword] = useState("demo1234");
   const [err, setErr] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen grid place-items-center p-6 bg-background relative overflow-hidden">
@@ -37,7 +39,7 @@ export default function LoginPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault(); setErr(null);
-                login.mutate({ email, password }, {
+                login.mutate({ email, password, turnstile_token: turnstileToken ?? undefined }, {
                   onSuccess: () => router.replace("/dashboard"),
                   onError:   (e) => {
                     const body = (e as any).body;
@@ -60,6 +62,7 @@ export default function LoginPage() {
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
               </div>
               {err && <div className="rounded-md border border-[hsl(var(--danger)/0.3)] bg-danger-bg text-[hsl(var(--danger))] text-[12px] px-3 py-2">{err}</div>}
+              <TurnstileWidget onToken={setTurnstileToken} />
               <Button className="w-full" size="lg" type="submit" disabled={login.isPending}>
                 {login.isPending ? "Signing in…" : "Sign in"}
               </Button>

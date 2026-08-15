@@ -221,7 +221,7 @@ export function useUpdateNotificationPrefs() {
 
 export function useLogin() {
   return useMutation({
-    mutationFn: (body: { email: string; password: string }) =>
+    mutationFn: (body: { email: string; password: string; turnstile_token?: string }) =>
       api.postNoAuth<{ access_token: string; user: Me }>("/auth/login", body),
     onSuccess: (r) => tokenStore.set(r.access_token),
   });
@@ -233,6 +233,7 @@ export type RegisterInput = {
   password: string;
   name?: string;
   bin?: string;
+  turnstile_token?: string;
 };
 
 export function useRegister() {

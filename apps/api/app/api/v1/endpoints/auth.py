@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,7 @@ _resend_limit   = rate_limit("auth.resend_code", limit=5, window_s=300)
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+    turnstile_token: str | None = None
 
 
 class RegisterIn(BaseModel):
@@ -35,6 +36,7 @@ class RegisterIn(BaseModel):
     password: str
     name: str | None = None
     bin: str | None = None
+    turnstile_token: str | None = None
 
 
 class TokenOut(BaseModel):
@@ -76,7 +78,11 @@ def _user_dict(u: User) -> dict:
 
 @router.post("/register", response_model=RegisterOut,
              dependencies=[Depends(_register_limit)])
-async def register(body: RegisterIn, session: AsyncSession = Depends(get_session)) -> RegisterOut:
+async def register(body: RegisterIn, request: Request, session: AsyncSession = Depends(get_session)) -> RegisterOut:
+    from app.core.ratelimit import _client_key
+    from app.services.auth.turnstile import verify_turnstile
+    if not await verify_turnstile(body.turnstile_token, _client_key(request)):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bot check failed — please retry")
     if await session.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already in use")
     company = Company(id=f"c_{uuid.uuid4().hex[:10]}", name=body.company_name, bin=body.bin, settings={})
@@ -168,7 +174,11 @@ async def resend_code(body: ResendCodeIn, session: AsyncSession = Depends(get_se
 
 @router.post("/login", response_model=TokenOut,
              dependencies=[Depends(_login_limit)])
-async def login(body: LoginIn, session: AsyncSession = Depends(get_session)) -> TokenOut:
+async def login(body: LoginIn, request: Request, session: AsyncSession = Depends(get_session)) -> TokenOut:
+    from app.core.ratelimit import _client_key
+    from app.services.auth.turnstile import verify_turnstile
+    if not await verify_turnstile(body.turnstile_token, _client_key(request)):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "bot check failed — please retry")
     user = await session.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.password_hash) or not user.active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
