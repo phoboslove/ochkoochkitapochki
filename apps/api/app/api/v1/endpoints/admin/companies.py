@@ -187,6 +187,12 @@ async def create_company(
         renewal_method="manual", grace_period_days=5,
     )
     session.add_all([company, owner, subscription])
+    # Flush company/owner/subscription to the DB before the audit insert —
+    # audit.record() also flushes, but in the same batch that isn't
+    # guaranteed to order the new company's row ahead of the audit_logs row
+    # that FK-references it (SQLite doesn't enforce the FK so this passed
+    # locally; Postgres does and threw a ForeignKeyViolationError in prod).
+    await session.flush()
     await audit.record(
         session, company_id=company.id, actor_type="platform_admin", actor_id=admin.id,
         action="admin.company_created", meta={"plan_code": plan.code, "owner_email": body.owner_email},
