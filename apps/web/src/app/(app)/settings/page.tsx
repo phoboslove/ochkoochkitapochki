@@ -48,7 +48,7 @@ export default function SettingsPage() {
       <PageHeader title={t("settings.title")}
         description={t("settings.subtitle")} />
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col lg:flex-row items-start gap-6">
         <nav className="lg:w-56 shrink-0 grid grid-cols-3 lg:grid-cols-1 gap-1">
           {TABS.map((tab_) => {
             const Icon = tab_.icon;
