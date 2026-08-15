@@ -309,6 +309,7 @@ async def extend_subscription(
     subscription.period_end = base + timedelta(days=body.days)
     subscription.status = "active"
     subscription.suspended_at = None
+    subscription.manually_suspended = False
     await audit.record(
         session, company_id=company_id, actor_type="platform_admin", actor_id=admin.id,
         action="admin.subscription_extended",
@@ -327,6 +328,7 @@ async def suspend_subscription(
     subscription, _plan = await get_subscription_and_plan(session, company_id)
     subscription.status = "suspended"
     subscription.suspended_at = datetime.utcnow()
+    subscription.manually_suspended = True
     await audit.record(
         session, company_id=company_id, actor_type="platform_admin", actor_id=admin.id,
         action="admin.subscription_suspended", meta={},
@@ -344,6 +346,7 @@ async def reactivate_subscription(
     subscription, _plan = await get_subscription_and_plan(session, company_id)
     subscription.status = "active"
     subscription.suspended_at = None
+    subscription.manually_suspended = False
     if subscription.period_end <= datetime.utcnow():
         subscription.period_end = datetime.utcnow() + timedelta(days=30)
     await audit.record(

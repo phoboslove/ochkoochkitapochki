@@ -101,6 +101,12 @@ class Subscription(Base):
     period_end:       Mapped[datetime] = mapped_column(DateTime)
     renewal_method:   Mapped[str] = mapped_column(String, default="manual")
     grace_period_days:Mapped[int] = mapped_column(Integer, default=5)
+    # True when an admin suspended this subscription directly (abuse, chargeback,
+    # etc.) rather than it having naturally lapsed past period_end+grace. The
+    # self-healing status refresh must not "helpfully" revert this back to
+    # active just because period_end is still in the future — only an explicit
+    # reactivate() call may clear it. See app/services/billing/status.py.
+    manually_suspended: Mapped[bool] = mapped_column(Boolean, default=False)
     suspended_at:     Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     cancelled_at:     Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at:       Mapped[datetime] = mapped_column(DateTime, default=_now)

@@ -25,6 +25,13 @@ def effective_status(subscription: Subscription, now: datetime) -> str:
     if subscription.status in _TERMINAL_UNCHANGED:
         return subscription.status
 
+    # An admin-initiated suspend is sticky: it must not self-heal back to
+    # active just because period_end hasn't been reached yet (that's the
+    # normal state for a manual suspend — it doesn't touch period_end at
+    # all). Only an explicit reactivate() call clears manually_suspended.
+    if subscription.status == "suspended" and subscription.manually_suspended:
+        return "suspended"
+
     grace_end = subscription.period_end + timedelta(days=subscription.grace_period_days)
 
     if now <= subscription.period_end:
