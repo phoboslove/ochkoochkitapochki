@@ -29,10 +29,12 @@ class DecideIn(BaseModel):
 @router.get("")
 async def list_approvals(
     status: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
-    rows = await service.list(session, user.company_id, status=status)
+    rows = await service.list(session, user.company_id, status=status, limit=limit, offset=offset)
     return [_serialize(a) for a in rows]
 
 

@@ -21,11 +21,17 @@ class ApprovalService:
         self.audit = AuditLogger()
         self.invoices = InvoiceService()
 
-    async def list(self, session: AsyncSession, company_id: str, *, status: str | None = None) -> list[Approval]:
+    async def list(
+        self, session: AsyncSession, company_id: str, *,
+        status: str | None = None, limit: int | None = None, offset: int = 0,
+    ) -> list[Approval]:
         q = select(Approval).where(Approval.company_id == company_id)
         if status:
             q = q.where(Approval.status == status)
-        rows = await session.scalars(q.order_by(desc(Approval.created_at)))
+        q = q.order_by(desc(Approval.created_at))
+        if limit is not None:
+            q = q.limit(limit).offset(offset)
+        rows = await session.scalars(q)
         return list(rows)
 
     async def get(self, session: AsyncSession, approval_id: str) -> Approval | None:

@@ -91,6 +91,13 @@ export type DocumentItem = {
   preview_url: string | null;
 };
 export type DocumentDetail = DocumentItem & { ocr_text: string | null };
+export type DashboardSummary = {
+  documents_generated_this_month: number;
+  approvals_pending_this_month: number;
+  approvals_blocked_this_month: number;
+  recent_documents: DocumentItem[];
+  recent_pending_approvals: Approval[];
+};
 export type IntegrationItem = {
   id: string | null; provider: string; status: string; config: Record<string, unknown>;
 };

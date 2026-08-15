@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   api, tokenStore,
-  type Approval, type AuditEntry, type CompanyOut, type DocumentDetail,
+  type Approval, type AuditEntry, type CompanyOut, type DashboardSummary, type DocumentDetail,
   type DocumentItem, type IntegrationItem, type Invoice, type InvoiceDetail, type Me,
   type MyPayment, type MySubscription,
   type OnboardingState, type ToolManifest, type UsageAnalytics,
@@ -18,6 +18,11 @@ export const useInvoices   = () => useQuery({ queryKey: ["invoices"],   queryFn:
 export const useInvoice    = (id: string) =>
   useQuery({ queryKey: ["invoice", id], queryFn: () => api.get<InvoiceDetail>(`/invoices/${id}`), enabled: !!id, ...LIVE });
 export const useApprovals  = () => useQuery({ queryKey: ["approvals"],  queryFn: () => api.get<Approval[]>("/approvals"), ...LIVE });
+// Lightweight aggregate for the dashboard — server-side counts + last-5 lists,
+// instead of the dashboard fetching every document/approval the company has
+// ever had just to compute this-month totals.
+export const useDashboardSummary = () =>
+  useQuery({ queryKey: ["dashboard-summary"], queryFn: () => api.get<DashboardSummary>("/dashboard/summary"), ...LIVE });
 export const useAuditLog   = () => useQuery({ queryKey: ["logs"],       queryFn: () => api.get<AuditEntry[]>("/logs"), ...LIVE });
 export const useMySubscription = () =>
   useQuery({ queryKey: ["billing-subscription"], queryFn: () => api.get<MySubscription>("/billing/subscription") });
@@ -111,6 +116,7 @@ export function useRetryDocument() {
     mutationFn: (id: string) => api.post<DocumentItem>(`/documents/${id}/retry`),
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
       qc.invalidateQueries({ queryKey: ["document", id] });
     },
   });
@@ -249,6 +255,7 @@ export function useDecideApproval() {
       api.post<Approval>(`/approvals/${id}/decide`, { approve }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["approvals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["logs"] });
     },
@@ -265,6 +272,7 @@ export function useSendChat() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["approvals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
       qc.invalidateQueries({ queryKey: ["logs"] });
     },
   });
@@ -278,6 +286,7 @@ export function useSimulateWhatsApp() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["approvals"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
       qc.invalidateQueries({ queryKey: ["logs"] });
     },
   });
@@ -308,6 +317,7 @@ export function useUploadDocument() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-summary"] });
       qc.invalidateQueries({ queryKey: ["logs"] });
     },
   });

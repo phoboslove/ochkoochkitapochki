@@ -5,17 +5,15 @@ import { Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useApprovals, useDecideApproval } from "@/lib/hooks";
+import { useDecideApproval } from "@/lib/hooks";
 import { toast } from "@/components/Toaster";
+import type { Approval } from "@/lib/api";
 
-export function PendingApprovalsWidget() {
-  const { data: approvals } = useApprovals();
+export function PendingApprovalsWidget({ approvals }: { approvals: Approval[] }) {
   const decide = useDecideApproval();
 
-  const pending = (approvals ?? [])
-    .filter((a) => a.status === "PENDING")
-    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
-    .slice(0, 5);
+  // Already the last 5 PENDING for this company, sorted newest-first server-side.
+  const pending = approvals;
 
   return (
     <Card>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Download, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useDocuments } from "@/lib/hooks";
 import { api, type DocumentItem } from "@/lib/api";
 
 const KIND_LABEL: Record<string, string> = {
@@ -22,13 +21,9 @@ const STATUS_LABEL: Record<DocumentItem["status"], string> = {
   PARSED: "Разобран", FAILED: "Ошибка", GENERATED: "Готов",
 };
 
-export function RecentDocumentsWidget() {
-  const { data: documents } = useDocuments();
-
-  const recent = (documents ?? [])
-    .slice()
-    .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
-    .slice(0, 5);
+export function RecentDocumentsWidget({ documents }: { documents: DocumentItem[] }) {
+  // Already the last 5 for this company, sorted newest-first server-side.
+  const recent = documents;
 
   return (
     <Card>

@@ -35,10 +35,12 @@ class PatchFieldsIn(BaseModel):
 
 @router.get("")
 async def list_documents(
+    limit: int | None = None,
+    offset: int = 0,
     user: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
-    rows = await service.list(session, user.company_id)
+    rows = await service.list(session, user.company_id, limit=limit, offset=offset)
     return [_serialize(r) for r in rows]
 
 

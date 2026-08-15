@@ -40,10 +40,14 @@ class DocumentService:
         self.storage = get_storage()
         self.audit = AuditLogger()
 
-    async def list(self, session: AsyncSession, company_id: str) -> list[Document]:
-        rows = await session.scalars(
-            select(Document).where(Document.company_id == company_id).order_by(desc(Document.created_at)),
-        )
+    async def list(
+        self, session: AsyncSession, company_id: str, *,
+        limit: int | None = None, offset: int = 0,
+    ) -> list[Document]:
+        q = select(Document).where(Document.company_id == company_id).order_by(desc(Document.created_at))
+        if limit is not None:
+            q = q.limit(limit).offset(offset)
+        rows = await session.scalars(q)
         return list(rows)
 
     async def get(self, session: AsyncSession, company_id: str, doc_id: str) -> Document | None:
