@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatKZT, cn } from "@/lib/utils";
 import { useDecideApproval } from "@/lib/hooks";
+import { api } from "@/lib/api";
 import { toast } from "@/components/Toaster";
 import { OperationalBadges } from "@/components/OperationalBadges";
 
@@ -119,7 +120,7 @@ export function AssistantActionCard({ tc }: { tc: ToolCall }) {
               </Button>
             </Link>
             {r.pdf_url && (
-              <a href={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}${r.pdf_url}`}
+              <a href={api.fileUrl(r.pdf_url)}
                  target="_blank" rel="noreferrer">
                 <Button size="sm" variant="outline">Download PDF</Button>
               </a>
@@ -243,9 +244,8 @@ function GeneratedDocumentCard({
       ? "border-l-[hsl(var(--warning))]"
       : "border-l-[hsl(var(--brand))]";
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-  const pdfHref = files.pdf?.url ? `${apiBase}${files.pdf.url}` : null;
-  const docxHref = files.docx?.url ? `${apiBase}${files.docx.url}` : null;
+  const pdfHref = files.pdf?.url ? api.fileUrl(files.pdf.url) : null;
+  const docxHref = files.docx?.url ? api.fileUrl(files.docx.url) : null;
 
   return (
     <Card className={`mt-2 border-l-[3px] ${accent}`}>

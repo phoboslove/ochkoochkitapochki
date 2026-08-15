@@ -47,7 +47,11 @@ export const api = {
   upload: <T>(p: string, form: FormData) => request<T>(p, { method: "POST", body: form }),
   postNoAuth: <T>(p: string, body?: unknown) =>
     request<T>(p, { method: "POST", body: JSON.stringify(body ?? {}) }, { auth: false }),
-  fileUrl: (presigned: string) => `${BASE}${presigned}`,
+  // Storage URLs come back either absolute (S3/R2 presigned — already a full,
+  // signed URL) or relative (local-storage backend's /api/v1/files/... path).
+  // Only relative ones need the API origin prefixed; prefixing an absolute
+  // URL would concatenate two origins into one broken string.
+  fileUrl: (url: string) => /^https?:\/\//i.test(url) ? url : `${BASE}${url}`,
 };
 
 // Types

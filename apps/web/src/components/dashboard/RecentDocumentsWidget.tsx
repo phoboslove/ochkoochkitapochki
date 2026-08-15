@@ -5,7 +5,7 @@ import { Download, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useDocuments } from "@/lib/hooks";
-import type { DocumentItem } from "@/lib/api";
+import { api, type DocumentItem } from "@/lib/api";
 
 const KIND_LABEL: Record<string, string> = {
   INVOICE: "Счёт", ACT: "Акт", NAKLADNAYA: "Накладная",
@@ -58,7 +58,7 @@ export function RecentDocumentsWidget() {
                 <Badge tone={STATUS_TONE[d.status]} className="shrink-0">{STATUS_LABEL[d.status]}</Badge>
                 {d.preview_url ? (
                   <a
-                    href={d.preview_url} target="_blank" rel="noreferrer"
+                    href={api.fileUrl(d.preview_url)} target="_blank" rel="noreferrer"
                     aria-label="Скачать"
                     className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md
                                text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
