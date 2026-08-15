@@ -100,6 +100,7 @@ async def init_and_seed() -> None:
             id="u_demo", company_id=DEMO_COMPANY_ID, email=DEMO_USER_EMAIL,
             name="Demo Owner", role="OWNER",
             password_hash=hash_password(DEMO_USER_PASSWORD),
+            email_verified=True,
         ))
         s.add_all([
             models.Client(id="cl_1", company_id=DEMO_COMPANY_ID, name="TOO ABC",

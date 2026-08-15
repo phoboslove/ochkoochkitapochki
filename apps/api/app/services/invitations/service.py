@@ -87,6 +87,9 @@ class InvitationService:
             id=f"u_{uuid.uuid4().hex[:10]}",
             company_id=inv.company_id, email=inv.email, name=name,
             role=inv.role, password_hash=hash_password(password),
+            # The invite link was mailed to this exact address — accepting it
+            # already proves ownership, no separate code needed.
+            email_verified=True,
         )
         session.add(user)
         inv.status = "ACCEPTED"

@@ -83,6 +83,49 @@ def _base_url() -> str:
     return os.environ.get("APP_BASE_URL", "http://localhost:3000").rstrip("/")
 
 
+def render_verification_code(*, email: str, code: str, ttl_min: int = 15) -> EmailMessage:
+    text = (
+        f"Ваш код подтверждения Wagwan: {code}\n\n"
+        f"Код действует {ttl_min} минут. Если вы не запрашивали регистрацию — "
+        f"просто проигнорируйте это письмо."
+    )
+    html = f"""\
+<!doctype html>
+<html>
+<body style="margin:0;padding:0;background-color:#f4f1ea;font-family:Georgia,'Times New Roman',serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f1ea;padding:48px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#ffffff;border:1px solid #e5ded0;">
+        <tr><td style="padding:40px 40px 24px;text-align:center;">
+          <div style="font-size:26px;letter-spacing:8px;color:#1a1a1a;font-weight:400;">W A G W A N</div>
+          <div style="margin-top:8px;height:1px;background-color:#e5ded0;"></div>
+        </td></tr>
+        <tr><td style="padding:8px 40px 0;text-align:center;">
+          <p style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#4a4a4a;margin:0 0 28px;">
+            Код подтверждения для входа в Wagwan
+          </p>
+          <div style="display:inline-block;padding:18px 32px;background-color:#f4f1ea;border:1px solid #e5ded0;
+                      font-family:'Courier New',monospace;font-size:34px;letter-spacing:10px;color:#1a1a1a;">
+            {code}
+          </div>
+          <p style="font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#8a8578;margin:24px 0 0;">
+            Код действует {ttl_min} минут.<br/>
+            Если вы не запрашивали регистрацию — просто проигнорируйте это письмо.
+          </p>
+        </td></tr>
+        <tr><td style="padding:32px 40px 40px;text-align:center;">
+          <p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;color:#b5b0a0;margin:0;">
+            Wagwan · AI Backoffice OS
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    return EmailMessage(to=email, subject=f"{code} — код подтверждения Wagwan", text=text, html=html, tag="verification")
+
+
 def render_invitation(*, email: str, token: str, company_name: str, role: str) -> EmailMessage:
     link = f"{_base_url()}/accept-invite?token={token}"
     text = (f"You've been invited to {company_name} on Wagwan as {role}.\n\n"

@@ -47,7 +47,15 @@ async def _unhandled(request: Request, exc: Exception):
     from app.services.billing.exceptions import (
         DocumentLimitExceededError, SubscriptionSuspendedError,
     )
+    from app.api.v1.endpoints.auth import EmailNotVerifiedError
     rid = getattr(request.state, "request_id", "-")
+    if isinstance(exc, EmailNotVerifiedError):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "email_not_verified", "email": exc.email,
+                     "message": "Подтвердите почту, чтобы войти. Мы отправили код на ваш email.",
+                     "support_id": rid},
+        )
     if isinstance(exc, QuotaExceeded):
         return JSONResponse(
             status_code=402,

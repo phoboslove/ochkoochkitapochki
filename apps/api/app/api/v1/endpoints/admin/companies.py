@@ -178,6 +178,7 @@ async def create_company(
     owner = User(
         id=f"u_{uuid.uuid4().hex[:10]}", company_id=company.id, email=body.owner_email,
         name=body.owner_name, role="OWNER", password_hash=hash_password(body.owner_password),
+        email_verified=True,  # admin is vouching for this address directly
     )
     now = datetime.utcnow()
     subscription = Subscription(
@@ -223,6 +224,7 @@ async def create_company_user(
     user = User(
         id=f"u_{uuid.uuid4().hex[:10]}", company_id=company_id, email=body.email,
         name=body.name, role=body.role, password_hash=hash_password(body.password),
+        email_verified=True,  # admin is vouching for this address directly
     )
     session.add(user)
     await audit.record(

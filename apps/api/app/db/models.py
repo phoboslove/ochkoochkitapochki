@@ -43,6 +43,12 @@ class User(Base):
     role:         Mapped[str] = mapped_column(String, default="MEMBER")  # OWNER|ADMIN|MEMBER|VIEWER
     password_hash:Mapped[str] = mapped_column(String)
     active:       Mapped[bool] = mapped_column(Boolean, default=True)
+    # Gates login for self-registered users until they confirm the 6-digit
+    # email code (see EmailVerification below). Deliberately separate from
+    # `active`, which already means something else (admin deactivation).
+    # Admin-created and invited users are marked verified immediately —
+    # their email is already proven by the inviting admin / the invite link.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     # Platform-level superadmin flag — orthogonal to the company-scoped `role`
     # above. Runs the business (billing, all companies), not a tenant role.
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -51,6 +57,20 @@ class User(Base):
     notify_telegram:   Mapped[bool] = mapped_column(Boolean, default=True)
     notify_email:      Mapped[bool] = mapped_column(Boolean, default=True)
     created_at:   Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
+class EmailVerification(Base):
+    """One row per user — a fresh code overwrites the previous one in place
+    rather than accumulating rows, since only the latest code is ever valid.
+    `last_sent_at` doubles as the resend-cooldown clock."""
+    __tablename__ = "email_verifications"
+    id:            Mapped[str] = mapped_column(String, primary_key=True)
+    user_id:       Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    code_hash:     Mapped[str] = mapped_column(String)
+    expires_at:    Mapped[datetime] = mapped_column(DateTime)
+    attempts:      Mapped[int] = mapped_column(Integer, default=0)
+    last_sent_at:  Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at:    Mapped[datetime] = mapped_column(DateTime, default=_now)
 
 
 class TelegramLink(Base):

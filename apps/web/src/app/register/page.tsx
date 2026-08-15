@@ -49,16 +49,17 @@ export default function RegisterPage() {
     setErrs(v);
     if (Object.keys(v).length > 0) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
     reg.mutate(
       {
         company_name: companyName.trim(),
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
         bin: bin.trim() || undefined,
       },
       {
-        onSuccess: () => router.replace("/dashboard"),
+        onSuccess: () => router.replace(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`),
         onError: (e) => setTopErr((e as Error).message),
       },
     );
@@ -82,7 +83,7 @@ export default function RegisterPage() {
           <CardContent className="p-6 sm:p-7">
             <h1 className="text-[17px] font-semibold mb-1">Создать аккаунт</h1>
             <p className="text-[12.5px] text-muted-foreground mb-5">
-              Заполните форму — мы создадим вашу компанию и сразу войдём.
+              Заполните форму — мы создадим вашу компанию и пришлём код подтверждения на почту.
             </p>
 
             <form onSubmit={onSubmit} className="space-y-3" noValidate>

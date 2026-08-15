@@ -39,7 +39,14 @@ export default function LoginPage() {
                 e.preventDefault(); setErr(null);
                 login.mutate({ email, password }, {
                   onSuccess: () => router.replace("/dashboard"),
-                  onError:   (e) => setErr((e as Error).message),
+                  onError:   (e) => {
+                    const body = (e as any).body;
+                    if (body?.error === "email_not_verified") {
+                      router.push(`/verify-email?email=${encodeURIComponent(body.email ?? email)}`);
+                      return;
+                    }
+                    setErr((e as Error).message);
+                  },
                 });
               }}
               className="space-y-3"

@@ -221,8 +221,8 @@ export function useUpdateNotificationPrefs() {
 
 export function useLogin() {
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      api.postNoAuth<{ access_token: string; user: Me }>("/auth/login", { email, password }),
+    mutationFn: (body: { email: string; password: string }) =>
+      api.postNoAuth<{ access_token: string; user: Me }>("/auth/login", body),
     onSuccess: (r) => tokenStore.set(r.access_token),
   });
 }
@@ -238,8 +238,22 @@ export type RegisterInput = {
 export function useRegister() {
   return useMutation({
     mutationFn: (body: RegisterInput) =>
-      api.postNoAuth<{ access_token: string; user: Me }>("/auth/register", body),
+      api.postNoAuth<{ status: string; email: string }>("/auth/register", body),
+  });
+}
+
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: ({ email, code }: { email: string; code: string }) =>
+      api.postNoAuth<{ access_token: string; user: Me }>("/auth/verify-email", { email, code }),
     onSuccess: (r) => tokenStore.set(r.access_token),
+  });
+}
+
+export function useResendCode() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api.postNoAuth<{ status: string }>("/auth/resend-code", { email }),
   });
 }
 

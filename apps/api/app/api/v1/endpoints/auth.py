@@ -20,6 +20,8 @@ router = APIRouter()
 # while leaving a real operator who fat-fingers a password headroom.
 _login_limit    = rate_limit("auth.login",    limit=5,  window_s=60)
 _register_limit = rate_limit("auth.register", limit=3,  window_s=300)
+_verify_limit   = rate_limit("auth.verify",   limit=10, window_s=300)
+_resend_limit   = rate_limit("auth.resend_code", limit=5, window_s=300)
 
 
 class LoginIn(BaseModel):
@@ -41,6 +43,29 @@ class TokenOut(BaseModel):
     user: dict
 
 
+class RegisterOut(BaseModel):
+    status: str = "verification_required"
+    email: str
+
+
+class VerifyEmailIn(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class ResendCodeIn(BaseModel):
+    email: EmailStr
+
+
+class EmailNotVerifiedError(Exception):
+    """Correct credentials, but the account is still pending its email code.
+    Caught by the global handler in main.py -> 403 with a distinct `error`
+    field so the frontend can route to the verification screen instead of
+    showing a generic "wrong password" message."""
+    def __init__(self, email: str):
+        self.email = email
+
+
 def _token(user: User) -> str:
     return create_access_token(sub=user.id, claims={"company_id": user.company_id, "role": user.role})
 
@@ -49,9 +74,9 @@ def _user_dict(u: User) -> dict:
     return {"id": u.id, "email": u.email, "name": u.name, "role": u.role, "company_id": u.company_id}
 
 
-@router.post("/register", response_model=TokenOut,
+@router.post("/register", response_model=RegisterOut,
              dependencies=[Depends(_register_limit)])
-async def register(body: RegisterIn, session: AsyncSession = Depends(get_session)) -> TokenOut:
+async def register(body: RegisterIn, session: AsyncSession = Depends(get_session)) -> RegisterOut:
     if await session.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already in use")
     company = Company(id=f"c_{uuid.uuid4().hex[:10]}", name=body.company_name, bin=body.bin, settings={})
@@ -80,7 +105,65 @@ async def register(body: RegisterIn, session: AsyncSession = Depends(get_session
         log.exception("commercial_seed_failed", company_id=company.id)
 
     await session.commit()
+
+    # Best-effort too: the account already exists and can request a resend
+    # from the verification screen if this particular send fails (transient
+    # provider outage). We don't want a flaky mail provider to roll back an
+    # otherwise-successful signup.
+    try:
+        from app.services.auth.verification import issue_code
+        from app.services.email.service import get_mailer, render_verification_code
+        code = await issue_code(session, user.id)
+        await session.commit()
+        await get_mailer().send(render_verification_code(email=user.email, code=code))
+    except Exception:  # noqa: BLE001
+        from app.core.logging import log
+        log.exception("verification_email_failed", user_id=user.id)
+
+    return RegisterOut(email=user.email)
+
+
+@router.post("/verify-email", response_model=TokenOut,
+             dependencies=[Depends(_verify_limit)])
+async def verify_email(body: VerifyEmailIn, session: AsyncSession = Depends(get_session)) -> TokenOut:
+    user = await session.scalar(select(User).where(User.email == body.email))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not user.email_verified:
+        from app.services.auth.verification import CodeInvalid, verify_code
+        try:
+            await verify_code(session, user.id, body.code)
+        except CodeInvalid as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        user.email_verified = True
+        await session.commit()
     return TokenOut(access_token=_token(user), user=_user_dict(user))
+
+
+@router.post("/resend-code", dependencies=[Depends(_resend_limit)])
+async def resend_code(body: ResendCodeIn, session: AsyncSession = Depends(get_session)) -> dict:
+    # Deliberately doesn't require the password: this is a low-stakes resend
+    # of an OTP the recipient still can't use without inbox access, and
+    # adding a password prompt to a screen whose whole point is "I lost my
+    # code" is worse UX for negligible security gain. To avoid leaking which
+    # emails are registered, every branch below returns the same generic
+    # {"status": "sent"} — only the 429 (rate limit) is observably different,
+    # same as any other endpoint's rate limiting.
+    user = await session.scalar(select(User).where(User.email == body.email))
+    if user and not user.email_verified:
+        from app.services.auth.verification import CodeResendTooSoon, issue_code
+        try:
+            code = await issue_code(session, user.id)
+        except CodeResendTooSoon as exc:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                f"Повторная отправка возможна через {exc.retry_after_s} сек.",
+                headers={"Retry-After": str(exc.retry_after_s)},
+            )
+        await session.commit()
+        from app.services.email.service import get_mailer, render_verification_code
+        await get_mailer().send(render_verification_code(email=user.email, code=code))
+    return {"status": "sent"}
 
 
 @router.post("/login", response_model=TokenOut,
@@ -89,6 +172,8 @@ async def login(body: LoginIn, session: AsyncSession = Depends(get_session)) -> 
     user = await session.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.password_hash) or not user.active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
+    if not user.email_verified:
+        raise EmailNotVerifiedError(user.email)
     return TokenOut(access_token=_token(user), user=_user_dict(user))
 
 
