@@ -21,6 +21,11 @@ _HUMAN_TITLE = {
     "nakladnaya":   "Товарная накладная",
     "contract":     "Договор",
     "trust_letter": "Доверенность",
+    "contract_services":  "Договор оказания услуг",
+    "contract_supply":    "Договор поставки",
+    "act_reconciliation": "Акт сверки взаиморасчётов",
+    "hr_order":            "Приказ о приёме на работу",
+    "employment_contract": "Трудовой договор",
 }
 
 

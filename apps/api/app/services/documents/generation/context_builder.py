@@ -48,6 +48,30 @@ def build_canonical_context(
     issue = intent.issue_date or date.today()
     due = issue + timedelta(days=a.due_in_days_default)
 
+    # Reconciliation-act running balance — deterministic code, not the LLM:
+    # each row's Сальдо is opening_balance plus the cumulative debit/credit
+    # of every prior row, exactly like the salary/turnover calculators in
+    # Block 3 keep arithmetic out of the model's hands.
+    opening_balance = Decimal(str(overrides.get("opening_balance") or 0))
+    running = opening_balance
+    operations_computed: list[dict[str, Any]] = []
+    for idx, op in enumerate(overrides.get("operations") or []):
+        debit = Decimal(str(op.get("debit") or 0))
+        credit = Decimal(str(op.get("credit") or 0))
+        running += debit - credit
+        operations_computed.append({
+            "idx": idx + 1,
+            "date": op.get("date") or "",
+            "doc_ref": op.get("doc_ref") or "",
+            "debit_fmt": _money(debit) if debit else "",
+            "credit_fmt": _money(credit) if credit else "",
+            "balance_fmt": _money(running),
+        })
+    closing_balance = running
+
+    salary_raw = overrides.get("salary")
+    salary_fmt = _money(Decimal(str(salary_raw))) if salary_raw not in (None, "") else ""
+
     flat: dict[str, Any] = {
         # Company
         "company_name":     c.name,
@@ -102,13 +126,59 @@ def build_canonical_context(
         # Signatures / misc
         "signature_block":  "",
         "notes":            overrides.get("notes") or "",
+
+        # HR — приказ о приёме, трудовой договор
+        "employee_name":       overrides.get("employee_name") or "",
+        "employee_iin":        overrides.get("employee_iin") or "",
+        "employee_address":    overrides.get("employee_address") or "",
+        "employee_position":   overrides.get("employee_position") or "",
+        "employee_department": overrides.get("employee_department") or "",
+        "employee_id_doc":     overrides.get("employee_id_doc") or "",
+        "hire_date":           overrides.get("hire_date") or "",
+        "work_start_date":     overrides.get("work_start_date") or overrides.get("hire_date") or "",
+        "salary":              salary_fmt,
+        "probation_period":    overrides.get("probation_period") or "",
+        "contract_term":       overrides.get("contract_term") or "бессрочный",
+        "work_schedule":       overrides.get("work_schedule") or "",
+        "vacation_days":       overrides.get("vacation_days") or "24",
+        "pay_dates":           overrides.get("pay_dates") or "",
+        "order_number":        overrides.get("order_number") or document_number,
+
+        # Доверенность
+        "valid_until":      overrides.get("valid_until") or "",
+        "from_name":        overrides.get("from_name") or "",
+        "from_bin":         overrides.get("from_bin") or "",
+
+        # Договоры (оказание услуг / поставка)
+        "service_description": overrides.get("service_description") or "",
+        "delivery_terms":      overrides.get("delivery_terms") or "",
+        "delivery_address":    overrides.get("delivery_address") or "",
+        "delivery_date":       overrides.get("delivery_date") or "",
+        "payment_terms":       overrides.get("payment_terms") or "",
+        "start_date":          overrides.get("start_date") or "",
+        "end_date":            overrides.get("end_date") or "",
+        "city":                overrides.get("city") or "Алматы",
+        "client_director_name": overrides.get("client_director_name") or "",
+
+        # Акт сверки взаиморасчётов
+        "period_start":          overrides.get("period_start") or "",
+        "period_end":            overrides.get("period_end") or "",
+        "opening_balance":       _money(opening_balance),
+        "closing_balance":       _money(closing_balance),
+        "closing_balance_words": _amount_in_words_kzt(closing_balance),
+        "operations":            operations_computed,
     }
-    # Pull in any explicit canonical overrides last — EXCEPT the money
-    # display fields, which are already derived above from intent.total
-    # (itself already override-aware, see _build_intent). Re-applying the
-    # raw override here would clobber the "{:,.2f}"-formatted string with
-    # the caller's unformatted number (e.g. "275 000.00" -> "275000.0").
-    _COMPUTED_MONEY_KEYS = {"subtotal", "vat", "total"}
+    # Pull in any explicit canonical overrides last — EXCEPT the money /
+    # computed display fields, which are already derived above (itself
+    # already override-aware, see _build_intent). Re-applying the raw
+    # override here would clobber the "{:,.2f}"-formatted string with the
+    # caller's unformatted number (e.g. "275 000.00" -> "275000.0"), or in
+    # the reconciliation-act / salary case, undo the computed running
+    # balance / formatted salary entirely.
+    _COMPUTED_MONEY_KEYS = {
+        "subtotal", "vat", "total", "salary",
+        "opening_balance", "closing_balance", "closing_balance_words", "operations",
+    }
     for k, v in (overrides or {}).items():
         if k in flat and k not in _COMPUTED_MONEY_KEYS and v not in (None, ""):
             flat[k] = v

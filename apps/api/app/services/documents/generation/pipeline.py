@@ -42,17 +42,27 @@ from app.services.storage import get_storage
 from app.services.templates.matcher import bump_success, match_best
 from app.services.templates.renderer import build_context_from_template, render_template
 
-SUPPORTED_KINDS = {"invoice", "act", "nakladnaya", "contract", "trust_letter", "arbitrary_template"}
+SUPPORTED_KINDS = {
+    "invoice", "act", "nakladnaya", "contract", "trust_letter",
+    "contract_services", "contract_supply", "act_reconciliation",
+    "hr_order", "employment_contract", "arbitrary_template",
+}
 
 _KIND_TO_DOCTYPE = {
     "invoice": "INVOICE", "act": "ACT", "nakladnaya": "NAKLADNAYA",
     "contract": "CONTRACT", "trust_letter": "TRUST_LETTER",
+    "contract_services": "CONTRACT_SERVICES", "contract_supply": "CONTRACT_SUPPLY",
+    "act_reconciliation": "ACT_RECONCILIATION",
+    "hr_order": "HR_ORDER", "employment_contract": "EMPLOYMENT_CONTRACT",
     "arbitrary_template": "OTHER",
 }
 
 _KIND_TO_NUM_PREFIX = {
     "invoice": "INV", "act": "ACT", "nakladnaya": "NKL",
-    "contract": "DOG", "trust_letter": "DOV", "arbitrary_template": "DOC",
+    "contract": "DOG", "trust_letter": "DOV",
+    "contract_services": "DUS", "contract_supply": "DPS",
+    "act_reconciliation": "AKS", "hr_order": "PRO", "employment_contract": "TRD",
+    "arbitrary_template": "DOC",
 }
 
 
@@ -563,6 +573,11 @@ def _human_kind(kind: str) -> str:
         "nakladnaya": "Накладная",
         "contract": "Договор",
         "trust_letter": "Доверенность",
+        "contract_services": "Договор оказания услуг",
+        "contract_supply": "Договор поставки",
+        "act_reconciliation": "Акт сверки взаиморасчётов",
+        "hr_order": "Приказ о приёме на работу",
+        "employment_contract": "Трудовой договор",
     }.get(kind, "Документ")
 
 

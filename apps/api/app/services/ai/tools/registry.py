@@ -59,7 +59,18 @@ class DocumentLineItem(BaseModel):
 
 class GenerateDocumentArgs(BaseModel):
     kind: str = Field(
-        ..., description="One of: invoice, act, nakladnaya, contract, trust_letter, arbitrary_template.",
+        ...,
+        description=(
+            "One of: invoice, act, nakladnaya, contract, trust_letter, "
+            "contract_services, contract_supply, act_reconciliation, "
+            "hr_order, employment_contract, arbitrary_template. "
+            "act_reconciliation = акт сверки взаиморасчётов (debit/credit "
+            "ledger between two parties) — NOT 'act' (акт выполненных "
+            "работ, a one-off delivery acceptance). contract_services = "
+            "договор оказания услуг; contract_supply = договор поставки "
+            "(goods). hr_order = short internal приказ о приёме на работу; "
+            "employment_contract = full трудовой договор."
+        ),
     )
     prompt: str | None = Field(
         None, description="The user's natural-language request, verbatim, for intent fallback.",
@@ -86,6 +97,31 @@ class GenerateDocumentArgs(BaseModel):
     qty: float = 1
     vat_percent: float | None = Field(None, description="VAT %; defaults to company accounting settings.")
     notes: str | None = None
+    extra_fields: dict[str, Any] | None = Field(
+        None,
+        description=(
+            "Kind-specific fields not covered above, extracted from the user's "
+            "request. Use exactly these key names (all optional, include only "
+            "what the user actually gave you):\n"
+            "  trust_letter: employee_name, employee_position, employee_iin, "
+            "employee_id_doc, valid_until (date), from_name, from_bin (whose "
+            "goods to receive)\n"
+            "  contract_services / contract_supply: client_bin, client_address, "
+            "client_director_name, service_description, delivery_terms, "
+            "delivery_address, delivery_date, payment_terms, start_date, "
+            "end_date, city\n"
+            "  act_reconciliation: client_bin, client_address, period_start, "
+            "period_end, opening_balance (number), operations (list of "
+            "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
+            "never pre-computed running balances, the app computes those)\n"
+            "  hr_order: employee_name, employee_iin, employee_position, "
+            "employee_department, hire_date, salary (number), probation_period\n"
+            "  employment_contract: employee_name, employee_iin, employee_address, "
+            "employee_id_doc, employee_position, employee_department, "
+            "work_start_date, contract_term, salary (number), pay_dates, "
+            "work_schedule, probation_period, vacation_days, city"
+        ),
+    )
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -328,7 +364,18 @@ class ToolRegistry:
 
 class ProposeDocumentArgs(BaseModel):
     kind: str = Field(
-        ..., description="One of: invoice, act, nakladnaya, contract, trust_letter, arbitrary_template.",
+        ...,
+        description=(
+            "One of: invoice, act, nakladnaya, contract, trust_letter, "
+            "contract_services, contract_supply, act_reconciliation, "
+            "hr_order, employment_contract, arbitrary_template. "
+            "act_reconciliation = акт сверки взаиморасчётов (debit/credit "
+            "ledger between two parties) — NOT 'act' (акт выполненных "
+            "работ, a one-off delivery acceptance). contract_services = "
+            "договор оказания услуг; contract_supply = договор поставки "
+            "(goods). hr_order = short internal приказ о приёме на работу; "
+            "employment_contract = full трудовой договор."
+        ),
     )
     prompt: str | None = Field(
         None, description="The user's natural-language request, verbatim.",
@@ -354,6 +401,31 @@ class ProposeDocumentArgs(BaseModel):
     qty: float = 1
     vat_percent: float | None = None
     notes: str | None = None
+    extra_fields: dict[str, Any] | None = Field(
+        None,
+        description=(
+            "Kind-specific fields not covered above, extracted from the user's "
+            "request. Use exactly these key names (all optional, include only "
+            "what the user actually gave you):\n"
+            "  trust_letter: employee_name, employee_position, employee_iin, "
+            "employee_id_doc, valid_until (date), from_name, from_bin (whose "
+            "goods to receive)\n"
+            "  contract_services / contract_supply: client_bin, client_address, "
+            "client_director_name, service_description, delivery_terms, "
+            "delivery_address, delivery_date, payment_terms, start_date, "
+            "end_date, city\n"
+            "  act_reconciliation: client_bin, client_address, period_start, "
+            "period_end, opening_balance (number), operations (list of "
+            "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
+            "never pre-computed running balances, the app computes those)\n"
+            "  hr_order: employee_name, employee_iin, employee_position, "
+            "employee_department, hire_date, salary (number), probation_period\n"
+            "  employment_contract: employee_name, employee_iin, employee_address, "
+            "employee_id_doc, employee_position, employee_department, "
+            "work_start_date, contract_term, salary (number), pay_dates, "
+            "work_schedule, probation_period, vacation_days, city"
+        ),
+    )
 
 
 class ProposeDocumentTool(Tool):
@@ -437,7 +509,7 @@ class ProposeDocumentTool(Tool):
         canonical = build_canonical_context(
             business=business, intent=intent,
             document_number="(будет назначен)",
-            overrides={},
+            overrides=args.extra_fields or {},
         )
 
         # 5) Identify missing-but-recommended fields the operator should fill.
@@ -459,6 +531,11 @@ class ProposeDocumentTool(Tool):
             "nakladnaya": "Товарная накладная",
             "contract": "Договор",
             "trust_letter": "Доверенность",
+            "contract_services": "Договор оказания услуг",
+            "contract_supply": "Договор поставки",
+            "act_reconciliation": "Акт сверки взаиморасчётов",
+            "hr_order": "Приказ о приёме на работу",
+            "employment_contract": "Трудовой договор",
             "arbitrary_template": "Документ",
         }.get(kind, "Документ")
 
@@ -679,6 +756,7 @@ class GenerateDocumentTool(Tool):
             "qty":              intent.qty if not intent.parsed_items else None,
             "vat_percent":      intent.vat_percent,
             "notes":            args.notes,
+            **(args.extra_fields or {}),
             # `parsed_items` is the canonical list of dicts after merge.
             "items":            list(intent.parsed_items) if intent.parsed_items else None,
         }
@@ -718,6 +796,11 @@ class GenerateDocumentTool(Tool):
         human_kind = {
             "invoice": "Счёт", "act": "Акт", "nakladnaya": "Накладная",
             "contract": "Договор", "trust_letter": "Доверенность",
+            "contract_services": "Договор оказания услуг",
+            "contract_supply": "Договор поставки",
+            "act_reconciliation": "Акт сверки взаиморасчётов",
+            "hr_order": "Приказ о приёме на работу",
+            "employment_contract": "Трудовой договор",
             "arbitrary_template": "Документ",
         }.get(kind, "Документ")
 

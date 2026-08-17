@@ -18,18 +18,38 @@ from dataclasses import dataclass, field
 from app.core.config import settings
 from app.core.logging import log
 
-SUPPORTED_KINDS = ["invoice", "act", "nakladnaya", "contract", "trust_letter"]
+SUPPORTED_KINDS = [
+    "invoice", "act", "nakladnaya", "contract", "trust_letter",
+    "contract_services", "contract_supply", "act_reconciliation",
+    "hr_order", "employment_contract",
+]
 
 # Fallback keyword table — used verbatim when no AI key is configured, or
 # when the LLM call fails for any reason. This is the same table that used
 # to be `_KIND_LEXICON` in intent.py; kept here since kind classification
 # now lives in one place.
+#
+# Order matters: this is a first-match scan, and several new keyword sets
+# are substrings of an older, more generic entry (e.g. "акт сверки"
+# contains "акт", "договор поставки" contains "договор"). The specific
+# entries are listed BEFORE their generic counterpart so they win.
 KIND_LEXICON: list[tuple[str, list[str]]] = [
     ("invoice",      ["invoice", "счет", "счёт", "счет на оплату", "инвойс", "bill"]),
+    ("act_reconciliation", ["акт сверки", "сверка взаиморасчет", "сверка взаиморасчёт",
+                             "reconciliation act"]),
     ("act",          ["акт", "act of", "act for", "акт выполненных", "акт оказанных"]),
     ("nakladnaya",   ["накладн", "nakladnaya", "товарная накладная", "тн", "торг-12"]),
+    ("contract_services", ["договор оказания услуг", "договор на оказание услуг",
+                            "оказание услуг", "service agreement"]),
+    ("contract_supply",   ["договор поставки", "договор на поставку", "поставка товара",
+                            "supply agreement"]),
+    ("employment_contract", ["трудовой договор", "employment contract", "labor contract",
+                              "labour contract"]),
+    ("hr_order",     ["приказ о приеме", "приказ о приёме", "приказ на работу",
+                       "hiring order", "employment order"]),
     ("contract",     ["контракт", "договор", "contract", "agreement"]),
-    ("trust_letter", ["доверенность", "trust letter", "power of attorney"]),
+    ("trust_letter", ["доверенность на получение", "доверенность", "trust letter",
+                       "power of attorney"]),
 ]
 
 
@@ -63,10 +83,20 @@ async def _classify_via_llm(text: str) -> KindClassification:
         "can be written in ANY language — do not assume Russian/English/"
         "Kazakh. Return STRICT JSON only, no commentary:\n"
         '{ "kind": one of ["invoice","act","nakladnaya","contract",'
-        '"trust_letter","unknown"],\n'
+        '"trust_letter","contract_services","contract_supply",'
+        '"act_reconciliation","hr_order","employment_contract","unknown"],\n'
         '  "confidence": 0.0-1.0,\n'
         '  "matched_phrase": str (the phrase, IN THE ORIGINAL LANGUAGE, '
         'that signalled the kind — empty string if none) }\n\n'
+        "Notes: act_reconciliation is a running-balance ledger of debits/"
+        "credits between two parties (акт сверки взаиморасчётов) — do NOT "
+        "confuse with 'act' (акт выполненных работ, a one-off acceptance of "
+        "delivered work/services). contract_services is a договор оказания "
+        "услуг; contract_supply is a договор поставки (goods, not services). "
+        "hr_order is a short internal приказ о приёме на работу; "
+        "employment_contract is the full трудовой договор with the employee. "
+        "Use plain 'contract' only when the document is neither a service "
+        "nor a supply agreement.\n\n"
         f"Request:\n---\n{text[:1500]}\n---"
     )
     resp = await client.chat.completions.create(

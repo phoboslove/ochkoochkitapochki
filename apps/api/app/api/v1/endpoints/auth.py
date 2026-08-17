@@ -121,6 +121,13 @@ async def register(body: RegisterIn, request: Request, session: AsyncSession = D
         from app.core.logging import log
         log.exception("commercial_seed_failed", company_id=company.id)
 
+    try:
+        from app.services.templates.kz_legal_seed import install_for_tenant as install_kz_legal
+        await install_kz_legal(session, company_id=company.id)
+    except Exception:  # noqa: BLE001
+        from app.core.logging import log
+        log.exception("kz_legal_seed_failed", company_id=company.id)
+
     await session.commit()
 
     if not require_verification:
