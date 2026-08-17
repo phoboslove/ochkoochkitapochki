@@ -236,10 +236,18 @@ export type RegisterInput = {
   turnstile_token?: string;
 };
 
+// Backend shape depends on REQUIRE_EMAIL_VERIFICATION: verification off
+// (default in beta) logs the user in immediately, same as the old flow;
+// verification on returns a pending-confirmation marker instead.
+export type RegisterResult =
+  | { access_token: string; user: Me }
+  | { status: string; email: string };
+
 export function useRegister() {
   return useMutation({
     mutationFn: (body: RegisterInput) =>
-      api.postNoAuth<{ status: string; email: string }>("/auth/register", body),
+      api.postNoAuth<RegisterResult>("/auth/register", body),
+    onSuccess: (r) => { if ("access_token" in r) tokenStore.set(r.access_token); },
   });
 }
 

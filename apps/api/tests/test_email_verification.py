@@ -1,7 +1,11 @@
 """Register -> unverified -> login blocked -> verify with code -> login works.
-Rate limiters are shared global state across the whole pytest session, so
-these tests override them to no-ops — rate limiting itself is exercised
-live against prod, not here."""
+This whole flow is off by default (REQUIRE_EMAIL_VERIFICATION=false, see
+_verification_required() in auth.py) — beta customers are onboarded by hand
+and there's no working mailer configured, so these tests force the flag on
+for their duration. Rate limiters are shared global state across the whole
+pytest session, so these tests override them to no-ops — rate limiting
+itself is exercised live against prod, not here."""
+import os
 import re
 from unittest.mock import patch
 
@@ -15,7 +19,9 @@ from app.main import app
 
 
 @pytest.fixture(autouse=True)
-async def override_session(session):
+async def override_session(session, monkeypatch):
+    monkeypatch.setenv("REQUIRE_EMAIL_VERIFICATION", "true")
+
     # register() requires a "trial" plan to exist (create_trial_subscription).
     session.add(Plan(
         id="plan_trial_test", code="trial", name="Trial", price_amount=0,
@@ -135,3 +141,31 @@ async def test_resend_cooldown_blocks_immediate_second_send(session, captured_ma
         r = await client.post("/api/v1/auth/resend-code", json={"email": "resend@example.com"})
         assert r.status_code == 429
         assert "Retry-After" in r.headers
+
+
+async def test_verification_off_by_default_registers_and_logs_in_immediately(session, captured_mailer, monkeypatch):
+    # Overrides the autouse fixture's forced "true" — this is the actual
+    # production default (env var unset).
+    monkeypatch.delenv("REQUIRE_EMAIL_VERIFICATION", raising=False)
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.post("/api/v1/auth/register", json={
+            "company_name": "No Verify Co", "email": "noverify@example.com", "password": "SuperSecret123",
+        })
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert "access_token" in body
+        assert body["user"]["email"] == "noverify@example.com"
+
+        # No code was ever generated or sent.
+        assert captured_mailer == []
+
+        from sqlalchemy import select
+        user = await session.scalar(select(User).where(User.email == "noverify@example.com"))
+        assert user.email_verified is True
+
+        # And a normal login works immediately, no code involved.
+        r = await client.post("/api/v1/auth/login", json={"email": "noverify@example.com", "password": "SuperSecret123"})
+        assert r.status_code == 200
+        assert "access_token" in r.json()

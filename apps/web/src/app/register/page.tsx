@@ -62,7 +62,10 @@ export default function RegisterPage() {
         turnstile_token: turnstileToken ?? undefined,
       },
       {
-        onSuccess: () => router.replace(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`),
+        onSuccess: (r) => {
+          if ("access_token" in r) router.replace("/dashboard");
+          else router.replace(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
+        },
         onError: (e) => setTopErr((e as Error).message),
       },
     );
@@ -86,7 +89,7 @@ export default function RegisterPage() {
           <CardContent className="p-6 sm:p-7">
             <h1 className="text-[17px] font-semibold mb-1">Создать аккаунт</h1>
             <p className="text-[12.5px] text-muted-foreground mb-5">
-              Заполните форму — мы создадим вашу компанию и пришлём код подтверждения на почту.
+              Заполните форму — мы создадим вашу компанию.
             </p>
 
             <form onSubmit={onSubmit} className="space-y-3" noValidate>

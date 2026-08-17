@@ -1,6 +1,7 @@
 """Auth endpoints — register company+owner, login, current user."""
 from __future__ import annotations
 
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -68,6 +69,14 @@ class EmailNotVerifiedError(Exception):
         self.email = email
 
 
+def _verification_required() -> bool:
+    """Off by default — beta customers are onboarded by hand today, and a
+    code gate only adds friction with no real bot-fighting benefit while
+    RESEND_API_KEY isn't configured (codes would only ever reach the server
+    log, locking real users out). Flip on once Resend is wired up."""
+    return os.environ.get("REQUIRE_EMAIL_VERIFICATION", "false").lower() in ("1", "true", "yes")
+
+
 def _token(user: User) -> str:
     return create_access_token(sub=user.id, claims={"company_id": user.company_id, "role": user.role})
 
@@ -76,19 +85,21 @@ def _user_dict(u: User) -> dict:
     return {"id": u.id, "email": u.email, "name": u.name, "role": u.role, "company_id": u.company_id}
 
 
-@router.post("/register", response_model=RegisterOut,
+@router.post("/register", response_model=TokenOut | RegisterOut,
              dependencies=[Depends(_register_limit)])
-async def register(body: RegisterIn, request: Request, session: AsyncSession = Depends(get_session)) -> RegisterOut:
+async def register(body: RegisterIn, request: Request, session: AsyncSession = Depends(get_session)) -> TokenOut | RegisterOut:
     from app.core.ratelimit import _client_key
     from app.services.auth.turnstile import verify_turnstile
     if not await verify_turnstile(body.turnstile_token, _client_key(request)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "bot check failed — please retry")
     if await session.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already in use")
+    require_verification = _verification_required()
     company = Company(id=f"c_{uuid.uuid4().hex[:10]}", name=body.company_name, bin=body.bin, settings={})
     user = User(
         id=f"u_{uuid.uuid4().hex[:10]}", company_id=company.id, email=body.email,
         name=body.name, role="OWNER", password_hash=hash_password(body.password),
+        email_verified=not require_verification,
     )
     session.add_all([company, user])
     await session.flush()
@@ -111,6 +122,9 @@ async def register(body: RegisterIn, request: Request, session: AsyncSession = D
         log.exception("commercial_seed_failed", company_id=company.id)
 
     await session.commit()
+
+    if not require_verification:
+        return TokenOut(access_token=_token(user), user=_user_dict(user))
 
     # Best-effort too: the account already exists and can request a resend
     # from the verification screen if this particular send fails (transient
@@ -182,7 +196,7 @@ async def login(body: LoginIn, request: Request, session: AsyncSession = Depends
     user = await session.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.password_hash) or not user.active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid credentials")
-    if not user.email_verified:
+    if _verification_required() and not user.email_verified:
         raise EmailNotVerifiedError(user.email)
     return TokenOut(access_token=_token(user), user=_user_dict(user))
 
