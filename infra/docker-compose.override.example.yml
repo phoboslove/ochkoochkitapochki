@@ -5,11 +5,16 @@
 # it again, and the whole stack stays reconstructable from repo + .env.prod
 # + this one file.
 #
-# Always deploy with all three compose files together:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml <cmd>
+# Always deploy with both compose files together:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml <cmd>
+#
+# Never add docker-compose.yml (the dev file) to a prod command — it exists
+# purely for local dev convenience and publishes postgres/minio/redis
+# straight onto host ports with no auth. docker-compose.prod.yml doesn't
+# need anything from it.
 #
 # If a deployment has no overrides at all, an override file with just
-# `services: {}` is fine — the three-file command still works unchanged.
+# `services: {}` is fine — the two-file command still works unchanged.
 
 services:
   # Example: wagwan1.com uses Let's Encrypt certs on the host (via certbot)

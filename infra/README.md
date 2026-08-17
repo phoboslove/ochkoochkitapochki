@@ -1,25 +1,35 @@
 # Production infrastructure
 
-Three compose files, always used together:
+Two compose files, always used together:
 
 | File | Committed? | Purpose |
 |---|---|---|
-| `docker-compose.yml` | yes | Local dev services (postgres/minio/redis on host ports) |
-| `docker-compose.prod.yml` | yes | Generic prod overlay — builds the api/web images, wires them to nginx. Reference stack: local `postgres` (profile-gated, off by default), self-signed certs in `./certs`, single-domain `nginx.conf`. |
+| `docker-compose.prod.yml` | yes | Self-contained prod stack — builds the api/web images, wires them to nginx. Reference stack: local `postgres` (profile-gated, off by default), self-signed certs in `./certs`, single-domain `nginx.conf`. |
 | `docker-compose.override.yml` | **no** (gitignored) | This specific server's real infrastructure choices — managed DB, real TLS certs, subdomain routing, whatever differs from the generic reference. Copy from `docker-compose.override.example.yml` and edit. |
 
-Deploy command always chains all three:
+Deploy command chains both:
 
 ```bash
 cd infra
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml \
-  up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
 ```
 
 If a server genuinely has no overrides, `docker-compose.override.yml` can just contain
-`services: {}` — the three-file command still works unchanged. The point is git pull
+`services: {}` — the two-file command still works unchanged. The point is git pull
 on the server never again conflicts with `docker-compose.prod.yml`, because nothing
 server-specific lives in that file anymore.
+
+> **Never add `-f docker-compose.yml` (the dev file) to a prod command.** That file
+> exists purely for local dev convenience and publishes postgres/minio/redis
+> straight onto host ports with no auth — `docker-compose.prod.yml` doesn't need
+> anything from it and already redefines everything it uses. Merging it in once,
+> even briefly to recreate nginx, is exactly what exposed an unauthenticated Redis
+> and MinIO's raw ports to the internet during a routine reconciliation on
+> 2026-08-17 — caught within minutes by testing the ports externally, not by ufw
+> (which does not actually block Docker-published ports without extra
+> configuration — Docker manipulates iptables directly and bypasses ufw's rules by
+> default). Fixed by dropping the dev file from the command entirely, not by
+> patching ufw.
 
 ## Bootstrapping a fresh server
 
@@ -35,7 +45,9 @@ server-specific lives in that file anymore.
    - **Local Postgres container**: set `DATABASE_URL` to
      `postgresql+asyncpg://buchuchet:${POSTGRES_PASSWORD}@postgres:5432/buchuchet`
      (matching whatever `POSTGRES_*` values you set), and add `--profile local-db`
-     to every `docker compose` command below.
+     to every `docker compose` command below. Note this only publishes postgres on
+     the internal Docker network — add your own `ports:` override if you also want
+     host access, and be deliberate about whether that host is internet-facing.
 4. Decide TLS:
    - **Self-signed / reference setup**: drop `fullchain.pem` + `privkey.pem` into
      `infra/certs/` (gitignored) — `docker-compose.prod.yml` already mounts that
@@ -55,12 +67,9 @@ server-specific lives in that file anymore.
    your actual choices from steps 3–4.
 6. First deploy:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml \
-     build api
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml \
-     run --rm api alembic upgrade head
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml \
-     up -d --build
+   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml build api
+   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml run --rm api alembic upgrade head
+   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
    ```
    The migration is run as a throwaway container *before* recreating the live api
    container, so a bad migration never takes down a currently-serving instance.
@@ -70,15 +79,23 @@ server-specific lives in that file anymore.
 ```bash
 cd /path/to/repo && git pull origin main
 cd infra
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml build api
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml run --rm api alembic upgrade head
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml build web
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml up -d --no-deps api web
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml build api
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml run --rm api alembic upgrade head
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml build web
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --no-deps api web
 ```
 
 `git pull` should never hit a merge conflict here again — the only things that used
 to differ (DB connection, TLS/nginx setup) now live in `.env.prod` and
 `docker-compose.override.yml`, neither of which git tracks.
+
+After any deploy that touches `nginx` (its own recreate, not just `--no-deps api web`),
+double-check nothing unexpected got published:
+```bash
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+```
+Only `nginx` (80/443) should have a `0.0.0.0:`-bound port. `api`/`web`/`minio` should
+show container-internal ports only (e.g. `8000/tcp`, no `0.0.0.0:8000->8000/tcp`).
 
 ## Backups
 

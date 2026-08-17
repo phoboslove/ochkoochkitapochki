@@ -95,7 +95,7 @@ curl http://127.0.0.1:8000/health/diagnostics   # checks DB / OCR / PDF / AI / e
 cp .env.prod.example .env.prod      # fill in real secrets
 cd infra
 cp docker-compose.override.example.yml docker-compose.override.yml   # edit for your server
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
 ```
 The api container runs `alembic upgrade head` before starting; Nginx terminates
 TLS and proxies to api/web. `docker-compose.override.yml` is gitignored and holds
