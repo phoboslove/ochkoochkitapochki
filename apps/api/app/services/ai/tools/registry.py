@@ -323,6 +323,40 @@ class ListInvoicesTool(Tool):
         ]}
 
 
+class GetTaxInfoArgs(BaseModel):
+    topic: str | None = Field(
+        None,
+        description=(
+            "Optional free-text hint of what the user is asking about "
+            "(e.g. 'ОПВ', 'упрощёнка', 'форма 910'), for logging only — "
+            "the tool always returns the full structured rate table, you "
+            "pick the relevant fields from it."
+        ),
+    )
+
+
+class GetTaxInfoTool(Tool):
+    name = "get_tax_info"
+    description = (
+        "READ-ONLY lookup of the structured 2026 Kazakhstan tax-rate knowledge base "
+        "(ОПВ/ОПВР/ВОСМС/ООСМС/СО/социальный налог/ИПН rates and bases, спецрежимы "
+        "— упрощёнка/самозанятые/ОУР, form 910/200/100 filing deadlines). Call this "
+        "whenever the user asks 'какие налоги...', 'когда сдавать...', 'сколько "
+        "составляет ставка...', or anything about KZ tax rates, thresholds, or "
+        "reporting deadlines. NEVER answer such questions from memory/training data — "
+        "always call this tool first and quote ONLY the numbers it returns, since "
+        "rates changed materially for 2026 versus prior years. Always include the "
+        "returned disclaimer and effective date in your reply."
+    )
+    args_model = GetTaxInfoArgs
+    danger = "read"
+    min_role = "VIEWER"
+
+    async def run(self, session, company_id, actor_id, args: GetTaxInfoArgs, *, conversation_id=None):
+        from app.services.tax.rates import load_rates, disclaimer
+        return {**load_rates(), "disclaimer_full": disclaimer()}
+
+
 # ─── Registry ────────────────────────────────────────────────────────────────
 
 class ToolRegistry:
@@ -348,6 +382,7 @@ class ToolRegistry:
         return cls([
             CreateInvoiceTool(), ListInvoicesTool(),
             ProposeDocumentTool(), GenerateDocumentTool(),
+            GetTaxInfoTool(),
         ])
 
 

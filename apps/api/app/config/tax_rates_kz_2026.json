@@ -1,0 +1,183 @@
+{
+  "effective_date": "2026-01-01",
+  "last_verified": "2026-08-17",
+  "currency": "KZT",
+  "disclaimer": "Справочная информация по состоянию на дату актуальности ниже. Не заменяет консультацию бухгалтера или налогового консультанта — перед подачей отчётности сверяйтесь с kgd.gov.kz и адвокатом/бухгалтером.",
+
+  "base_values": {
+    "mrp": { "value": 4325, "unit": "KZT", "label": "МРП (месячный расчётный показатель) 2026" },
+    "mzp": { "value": 85000, "unit": "KZT", "label": "МЗП (минимальная заработная плата) 2026" }
+  },
+
+  "payroll": {
+    "ipn": {
+      "label": "ИПН (индивидуальный подоходный налог)",
+      "type": "progressive",
+      "note": "С 2026 года прогрессивная шкала: 10% сохраняется до 8500 МРП дохода за календарный год нарастающим итогом; на сумму превышения — 15%. Повышенная ставка применяется ТОЛЬКО к сумме превышения, не ко всему доходу. Калькулятор считает помесячно через приближение (месячная база × 12), с оговоркой, что точный расчёт ведётся по фактическому годовому доходу нарастающим итогом с 1 января.",
+      "rate_standard": 0.10,
+      "rate_high": 0.15,
+      "progressive_threshold_mrp_annual": 8500,
+      "progressive_threshold_kzt_annual": 36762500,
+      "base_deduction": {
+        "mrp": 30,
+        "kzt": 129750,
+        "note": "Увеличен с 14 МРП (значение до 2026 года) до 30 МРП с 2026 года — это самое значимое изменение относительно распространённых устаревших источников."
+      },
+      "calc_base": "начислено - ОПВ - ВОСМС - базовый_вычет",
+      "sources": [
+        "https://trustme.kz/progressivnaya-shkala-ipn-v-kazahstane-2026-stavki-10-i-15-raschyot-vychety/",
+        "https://mybuh.kz/useful/progressivnaya-shkala-ipn-izmeneniya-vstupyat-v-silu-s-2026-goda.html",
+        "https://uchet.kz",
+        "https://pro1c.kz"
+      ]
+    },
+    "opv": {
+      "label": "ОПВ (обязательные пенсионные взносы, за счёт работника)",
+      "rate": 0.10,
+      "payer": "employee",
+      "base_cap_mzp": 50,
+      "base_cap_kzt": 4250000,
+      "sources": ["https://pro1c.kz/articles/trud-zarplata-kadry/obyazatelnye-pensionnye-vznosy/"]
+    },
+    "opvr": {
+      "label": "ОПВР (обязательные пенсионные взносы работодателя)",
+      "rate": 0.035,
+      "payer": "employer",
+      "note": "Введены отдельно от ОПВ; ставка 3.5% с 1 января 2026 года.",
+      "sources": ["https://mybuh.kz/news/stavka-opvr-vyrastet-s-2025-goda/"]
+    },
+    "vosms": {
+      "label": "ВОСМС (взносы на ОСМС, за счёт работника)",
+      "rate": 0.02,
+      "payer": "employee",
+      "base_cap_mzp": 20,
+      "base_cap_kzt": 1700000,
+      "base_reference_mzp": 85000,
+      "sources": [
+        "https://uchet.kz/news/oosms-vosms-povyshenie-verkhnego-predela-s-2026-goda/",
+        "https://mybuh.kz/news/vosms-i-oosms-v-2024-g-stavki-i-predelnye-summy/"
+      ]
+    },
+    "oosms": {
+      "label": "ООСМС (отчисления на ОСМС, за счёт работодателя)",
+      "rate": 0.03,
+      "payer": "employer",
+      "base_cap_mzp": 40,
+      "base_cap_kzt": 3400000,
+      "sources": ["https://kadry.mcfr.kz/news/7058-vosms-i-oosms-v-2026-godu-kakie-stavki-i-limity-deystvuyut-dlya-rabotodateley-i-rabotnikov"]
+    },
+    "so": {
+      "label": "СО (социальные отчисления, за счёт работодателя, в ГФСС)",
+      "rate": 0.05,
+      "payer": "employer",
+      "calc_base": "начислено - ОПВ",
+      "base_min_mzp": 1,
+      "base_max_mzp": 7,
+      "base_min_kzt": 85000,
+      "base_max_kzt": 595000,
+      "note": "Каноническая ставка для расчётов в этом приложении. НЕ путать с 'единым платежом' (см. unified_payment ниже) — это отдельный добровольный механизм для СМП на спецрежимах, а не альтернативная ставка СО.",
+      "sources": [
+        "https://mybuh.kz/news/sotsialnye-otchisleniya-so-s-2025-goda-stavka-vyrastet/",
+        "https://www.bcc.kz/bcc-journal/social-payments/"
+      ]
+    },
+    "social_tax": {
+      "label": "Социальный налог (за счёт работодателя)",
+      "rate": 0.06,
+      "payer": "employer",
+      "calc_base": "начислено - ОПВ - ВОСМС",
+      "calc_base_note": "С 2026 года НК РК прямо исключает ОПВ и взносы на ОСМС из объекта обложения социальным налогом — статья об объекте обложения социальным налогом, редакция НК РК с 01.01.2026 (см. источники). Итог: НЕ считать от полного начисленного оклада.",
+      "floor_mrp": 14,
+      "floor_kzt": 60550,
+      "floor_note": "Если объект обложения за месяц менее 14 МРП, налог исчисляется от 14 МРП (кроме месяца приёма/увольнения работника).",
+      "netting_removed_2026": true,
+      "netting_note": "С 2026 года исчисленный социальный налог больше НЕ уменьшается на сумму социальных отчислений (СО) — эта льгота действовала до 2026 года и исключена новым НК.",
+      "rate_was_2025": 0.11,
+      "ip_self": { "per_owner_mrp": 2, "per_employee_mrp": 1 },
+      "sources": [
+        "https://www.1cbit.kz/blog/sotsialnyy-nalog-chto-izmenilos/",
+        "https://pro1c.kz/news/zakonodatelstvo/stavka-sotsialnogo-naloga-snizhena/",
+        "https://uchet.kz/news/sotsialnyy-nalog-2026-novye-stavki-dlya-biznesa-i-ip/"
+      ]
+    }
+  },
+
+  "unified_payment": {
+    "label": "Единый платёж с заработной платы",
+    "available": true,
+    "mandatory": false,
+    "rate": 0.248,
+    "bundles": ["ОПВ", "ОПВР", "СО", "ВОСМС", "ООСМС", "ИПН"],
+    "eligible_for": "ИП и юрлица — субъекты микро/малого/среднего предпринимательства на отдельных спецрежимах",
+    "note": "Добровольная альтернатива обычному расчёту, сокращает 6 отдельных платежей до 1. НЕ используется калькулятором зарплаты в этом приложении — по решению продукта СО/ОПВ/ОПВР/ВОСМС/ООСМС/ИПН считаются отдельно (canonical итемизированный расчёт), единый платёж упомянут здесь только для ответов ассистента в чате.",
+    "sources": [
+      "https://mybuh.kz/useful/edinyy-platezh-s-zarplaty-2025-dolya-opv-opvr-osms-vosms-so.html",
+      "https://pro1c.kz/articles/trud-zarplata-kadry/pro-edinyy-platezh-s-zarabotnoy-platy/"
+    ]
+  },
+
+  "regimes": {
+    "simplified_910": {
+      "label": "Упрощённая декларация (форма 910)",
+      "ipn_rate_base": 0.04,
+      "ipn_rate_range": [0.02, 0.06],
+      "rate_note": "Базовая ставка 4%; местные маслихаты вправе устанавливать от 2% до 6% в зависимости от региона и вида деятельности.",
+      "income_limit_mrp_year": 600000,
+      "income_limit_kzt_year": 2595000000,
+      "vat": "не платится на упрощёнке",
+      "filing_periods": ["1 полугодие — до 15 августа", "2 полугодие — до 15 февраля следующего года"],
+      "sources": [
+        "https://www.bcc.kz/bcc-journal/simplified-regime/",
+        "https://mybuh.kz/useful/po-kakim-oked-mozhno-primenyat-roznichnyy-nalog.html"
+      ]
+    },
+    "general": {
+      "label": "Общеустановленный режим (ОУР)",
+      "kpn_rate": 0.20,
+      "note": "Корпоративный подоходный налог для юрлиц на ОУР — базовая ставка 20% (специальные ставки для отдельных видов деятельности не включены в этот справочник).",
+      "sources": ["https://uchet.kz/month/primer-zapolneniya-deklaratsii-po-kpn-forma-100-00-za-2025-god/"]
+    },
+    "self_employed": {
+      "label": "СНР для самозанятых",
+      "ipn_rate": 0.0,
+      "social_payment_rate": 0.04,
+      "social_payment_breakdown": { "opv": 0.01, "opvr": 0.01, "so": 0.01, "osms": 0.01 },
+      "income_limit_mrp_month": 300,
+      "income_limit_kzt_month": 1297500,
+      "income_limit_mrp_year": 3600,
+      "income_limit_kzt_year": 15570000,
+      "reporting": "учёт доходов и уплата платежей — через мобильное приложение E-Salyq Business",
+      "sources": [
+        "https://alataucitybank.kz/business/osim/articles/kakie-nalogi-platit-samozanyatyy",
+        "https://www.bcc.kz/bcc-journal/self-employment-2026/"
+      ]
+    },
+    "retail": {
+      "label": "Розничный налог",
+      "abolished": true,
+      "abolished_date": "2026-01-01",
+      "note": "Розничный налог как отдельный режим упразднён с 1 января 2026 года; его функции для B2C-бизнеса (магазины у дома и т.п.) переданы расширенной упрощённой декларации (форма 910).",
+      "sources": ["https://mybuh.kz/useful/po-kakim-oked-mozhno-primenyat-roznichnyy-nalog.html"]
+    }
+  },
+
+  "filing_forms": {
+    "910": {
+      "label": "Упрощённая декларация (упрощёнка)",
+      "period": "полугодие",
+      "deadlines": ["15 августа (за 1 полугодие)", "15 февраля следующего года (за 2 полугодие)"]
+    },
+    "200": {
+      "label": "Декларация по ИПН и социальному налогу (работодатель)",
+      "period": "квартал",
+      "deadline": "15 число второго месяца, следующего за отчётным кварталом"
+    },
+    "100": {
+      "label": "Декларация по КПН (корпоративный подоходный налог)",
+      "period": "год",
+      "deadline": "31 марта года, следующего за отчётным",
+      "note": "Форма 100.00 полностью переработана в соответствии с новым Налоговым кодексом, действующим с 1 января 2026 года.",
+      "sources": ["https://uchet.kz/month/primer-zapolneniya-deklaratsii-po-kpn-forma-100-00-za-2025-god/"]
+    }
+  }
+}
