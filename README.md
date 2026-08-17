@@ -93,10 +93,15 @@ curl http://127.0.0.1:8000/health/diagnostics   # checks DB / OCR / PDF / AI / e
 
 ```bash
 cp .env.prod.example .env.prod      # fill in real secrets
-docker compose -f infra/docker-compose.prod.yml up -d --build
+cd infra
+cp docker-compose.override.example.yml docker-compose.override.yml   # edit for your server
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
 ```
 The api container runs `alembic upgrade head` before starting; Nginx terminates
-TLS and proxies to api/web.
+TLS and proxies to api/web. `docker-compose.override.yml` is gitignored and holds
+whatever differs between this server and the generic reference stack (managed DB,
+real TLS certs, subdomain routing) — see **[infra/README.md](infra/README.md)**
+for the full bootstrap/deploy runbook and why `git pull` never needs to touch it.
 
 ## Required environment variables
 

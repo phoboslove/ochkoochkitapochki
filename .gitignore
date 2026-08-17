@@ -74,6 +74,10 @@ infra/backups/
 *.tar.gz
 *.zip
 
+# Server-specific compose overrides (real DB/TLS setup per deployment) —
+# see infra/docker-compose.override.example.yml for the template.
+infra/docker-compose.override.yml
+
 # ─── Alembic local cache (versions are tracked) ────────────────────────
 apps/api/alembic/__pycache__/
 

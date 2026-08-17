@@ -1,7 +1,14 @@
 services:
+  # Only needed if you're running Postgres in-stack instead of a managed
+  # provider (Neon, RDS, ...). Not started by default — `docker compose up`
+  # ignores it unless you pass `--profile local-db`. When using a managed
+  # provider instead, just set DATABASE_URL directly in .env.prod; the api
+  # service below no longer hardcodes a postgres:// URL, so whatever
+  # .env.prod says wins.
   postgres:
     image: postgres:16
     restart: unless-stopped
+    profiles: ["local-db"]
     environment:
       POSTGRES_USER:     ${POSTGRES_USER:-buchuchet}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -35,11 +42,12 @@ services:
     restart: unless-stopped
     env_file: ../.env.prod
     depends_on:
-      postgres: { condition: service_healthy }
-      minio:    { condition: service_started }
+      minio: { condition: service_started }
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-buchuchet}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-buchuchet}
-      ALEMBIC_URL:  postgresql+psycopg://${POSTGRES_USER:-buchuchet}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-buchuchet}
+      # DATABASE_URL / ALEMBIC_URL come from .env.prod — set them to your
+      # managed Postgres DSN, or to the local-db service's DSN
+      # (postgresql+asyncpg://${POSTGRES_USER:-buchuchet}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-buchuchet})
+      # if you're running --profile local-db.
       STORAGE_BACKEND: s3
       S3_ENDPOINT: http://minio:9000
 

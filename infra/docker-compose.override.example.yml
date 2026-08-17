@@ -1,0 +1,23 @@
+# Copy to docker-compose.override.yml (gitignored) on the actual server and
+# edit as needed. This is where a real deployment's infrastructure choices
+# live — anything that differs from the generic reference stack in
+# docker-compose.prod.yml — so `git pull` on the server never conflicts with
+# it again, and the whole stack stays reconstructable from repo + .env.prod
+# + this one file.
+#
+# Always deploy with all three compose files together:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.override.yml <cmd>
+#
+# If a deployment has no overrides at all, an override file with just
+# `services: {}` is fine — the three-file command still works unchanged.
+
+services:
+  # Example: wagwan1.com uses Let's Encrypt certs on the host (via certbot)
+  # and the subdomain-split config instead of the generic single-domain one.
+  # DATABASE_URL for that deployment is a managed Neon Postgres DSN set
+  # directly in .env.prod — no local `postgres` service needed, so it's
+  # simply left out of this file (profile-gated off by default already).
+  nginx:
+    volumes:
+      - ./nginx.wagwan1.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
