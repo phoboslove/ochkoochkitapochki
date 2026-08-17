@@ -357,6 +357,69 @@ class GetTaxInfoTool(Tool):
         return {**load_rates(), "disclaimer_full": disclaimer()}
 
 
+class CalculateSalaryArgs(BaseModel):
+    gross: float = Field(
+        ..., description="Monthly gross salary (оклад) in KZT, before any deductions.",
+    )
+
+
+class CalculateSalaryTool(Tool):
+    name = "calculate_salary"
+    description = (
+        "DETERMINISTIC payroll calculator — computes ОПВ/ВОСМС/ИПН/net pay and the "
+        "employer's ОПВР/СО/ООСМС/социальный налог/total cost from a monthly gross "
+        "salary, using 2026 KZ rates. Call this for ANY request to compute salary "
+        "deductions or 'стоимость сотрудника' — e.g. 'посчитай отчисления с оклада "
+        "300000'. The arithmetic is done by code, not you — NEVER compute or estimate "
+        "these numbers yourself, always call this tool and present exactly what it "
+        "returns as a table, plus its disclaimer."
+    )
+    args_model = CalculateSalaryArgs
+    danger = "read"
+    min_role = "VIEWER"
+
+    async def run(self, session, company_id, actor_id, args: CalculateSalaryArgs, *, conversation_id=None):
+        from app.services.tax.calculators import calculate_salary
+        try:
+            return calculate_salary(args.gross).as_dict()
+        except ValueError as exc:
+            return {"error": "invalid_input", "message": str(exc)}
+
+
+class CalculateTurnoverTaxArgs(BaseModel):
+    turnover: float = Field(..., description="Total turnover/оборот for the period, in KZT.")
+    rate: float | None = Field(
+        None,
+        description=(
+            "Override the base 4% упрощёнка (форма 910) rate ONLY if the user "
+            "explicitly stated their region/maslikhat rate (range 0.02-0.06). "
+            "Leave unset to use the base rate."
+        ),
+    )
+
+
+class CalculateTurnoverTaxTool(Tool):
+    name = "calculate_turnover_tax"
+    description = (
+        "DETERMINISTIC turnover-tax calculator for ИП/ТОО on упрощёнка (форма 910) — "
+        "computes the tax from a period's oборот using 2026 rates. Call this for "
+        "requests like 'ИП на упрощёнке, оборот 5 млн за полугодие — сколько налогов'. "
+        "The arithmetic is done by code — NEVER compute this yourself. Always mention "
+        "the returned self_payments_note (соцплатежи за себя are separate) and the "
+        "disclaimer."
+    )
+    args_model = CalculateTurnoverTaxArgs
+    danger = "read"
+    min_role = "VIEWER"
+
+    async def run(self, session, company_id, actor_id, args: CalculateTurnoverTaxArgs, *, conversation_id=None):
+        from app.services.tax.calculators import calculate_turnover_tax
+        try:
+            return calculate_turnover_tax(args.turnover, rate=args.rate).as_dict()
+        except ValueError as exc:
+            return {"error": "invalid_input", "message": str(exc)}
+
+
 # ─── Registry ────────────────────────────────────────────────────────────────
 
 class ToolRegistry:
@@ -382,7 +445,7 @@ class ToolRegistry:
         return cls([
             CreateInvoiceTool(), ListInvoicesTool(),
             ProposeDocumentTool(), GenerateDocumentTool(),
-            GetTaxInfoTool(),
+            GetTaxInfoTool(), CalculateSalaryTool(), CalculateTurnoverTaxTool(),
         ])
 
 

@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     ai, anomalies, approvals, auth, billing, clients, companies, conversations, dashboard, documents, files,
     integrations, invitations, invoices, logs, ops, recovery, reports, search,
-    knowledge, settings as settings_ep, support, telegram, templates, webhooks, workflows,
+    knowledge, settings as settings_ep, support, tax, telegram, templates, webhooks, workflows,
 )
 from app.api.v1.endpoints import admin as admin_ep
 
@@ -34,4 +34,5 @@ api_router.include_router(support.router,      prefix="/support",      tags=["su
 api_router.include_router(settings_ep.router,  prefix="/settings",     tags=["settings"])
 api_router.include_router(knowledge.router,    prefix="/knowledge",    tags=["knowledge"])
 api_router.include_router(billing.router,      prefix="/billing",      tags=["billing"])
+api_router.include_router(tax.router,          prefix="/tax",          tags=["tax"])
 api_router.include_router(admin_ep.router,     prefix="/admin",        tags=["admin"])

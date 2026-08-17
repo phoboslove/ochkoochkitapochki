@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Sparkles, FileText, Receipt, BarChart3, Workflow,
   Users, Plug, ScrollText, Building2, ShieldCheck, Menu, X,
-  Activity, LifeBuoy, UserPlus, Gauge, Rocket,
+  Activity, LifeBuoy, UserPlus, Gauge, Rocket, Calculator,
   PanelLeftClose, PanelLeftOpen, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ const GROUPS: NavGroup[] = [
       { href: "/clients",   labelKey: "nav.clients",    icon: Users },
       { href: "/team",      labelKey: "nav.team",       icon: UserPlus },
       { href: "/reports",   labelKey: "nav.reports",    icon: BarChart3 },
+      { href: "/calculators", labelKey: "nav.calculators", icon: Calculator },
       { href: "/settings",  labelKey: "nav.settings",   icon: Building2 },
       { href: "/onboarding",labelKey: "nav.onboarding", icon: Rocket },
     ],
