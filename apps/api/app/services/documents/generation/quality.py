@@ -20,6 +20,10 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any
 
+from app.services.documents.generation.required_fields import (
+    KINDS_WITH_TOTAL_ITEMS_CHECK, required_fields_for,
+)
+
 # A placeholder is anything still looking like {{ … }} or {% … %} in the output.
 _LEFTOVER_PLACEHOLDER_RE = re.compile(r"\{\{[^}]{1,80}\}\}|\{%[^%]{1,80}%\}")
 
@@ -62,6 +66,7 @@ class QualityReport:
 
 def check_render_quality(
     *,
+    kind: str,
     canonical: dict[str, Any],
     rendered_bytes: bytes,
     rendered_ext: str,           # docx | xlsx | pdf | html
@@ -77,58 +82,66 @@ def check_render_quality(
         "has_pdf":        bool(pdf_bytes),
     }
 
-    # 1) Required canonical fields — operator-facing names.
-    for canonical_key, label in (
-        ("company_name", "Company name"),
-        ("client_name",  "Client name"),
-        ("total_raw",    "Total amount"),
-        ("document_number", "Document number"),
-    ):
-        v = canonical.get(canonical_key)
-        if v in (None, "", "—", 0):
+    # 1) Required canonical fields — declarative per kind (required_fields.py).
+    # No if/elif here by design: adding a new kind means adding one entry to
+    # KIND_REQUIRED_FIELDS, not touching this function.
+    for rf in required_fields_for(kind):
+        v = canonical.get(rf.key)
+        is_missing = (not v) if rf.check == "list" else v in (None, "", "—", 0)
+        if is_missing:
             issues.append(QualityIssue(
-                code=f"missing_{canonical_key}", severity="error", weight=20,
-                message=f"{label} is empty in the populated context.",
+                code=f"missing_{rf.key}", severity=rf.severity, weight=rf.weight,
+                message=f"{rf.label} is empty in the populated context.",
             ))
 
-    # 2) Item table sanity.
-    items = canonical.get("items") or []
-    stats["item_count"] = len(items)
-    if not items:
-        # Items missing isn't always fatal (некоторые акты — текстовые), но снимаем баллы.
-        issues.append(QualityIssue(
-            code="empty_items", severity="warning", weight=10,
-            message="No line items resolved — table will render empty.",
-        ))
-    else:
-        item_total = 0.0
-        for idx, it in enumerate(items, start=1):
-            if not (it.get("name") or "").strip():
-                issues.append(QualityIssue(
-                    code="item_missing_name", severity="warning", weight=5,
-                    where=f"row {idx}",
-                    message=f"Row {idx} has no name — table cell will be blank.",
-                ))
+    # 2) Item table sanity — only for kinds that actually render a generic
+    # {{items}} table with a single grand total (see KINDS_WITH_TOTAL_ITEMS_CHECK).
+    # Kinds like act_reconciliation/hr_order have their own shape and are
+    # covered entirely by their declarative required-field list above.
+    if kind in KINDS_WITH_TOTAL_ITEMS_CHECK:
+        total_v = canonical.get("total_raw")
+        if total_v in (None, "", 0):
+            issues.append(QualityIssue(
+                code="missing_total_raw", severity="error", weight=20,
+                message="Total amount is empty in the populated context.",
+            ))
+        items = canonical.get("items") or []
+        stats["item_count"] = len(items)
+        if not items:
+            # Items missing isn't always fatal (некоторые акты — текстовые), но снимаем баллы.
+            issues.append(QualityIssue(
+                code="empty_items", severity="warning", weight=10,
+                message="No line items resolved — table will render empty.",
+            ))
+        else:
+            item_total = 0.0
+            for idx, it in enumerate(items, start=1):
+                if not (it.get("name") or "").strip():
+                    issues.append(QualityIssue(
+                        code="item_missing_name", severity="warning", weight=5,
+                        where=f"row {idx}",
+                        message=f"Row {idx} has no name — table cell will be blank.",
+                    ))
+                try:
+                    item_total += float(it.get("total") or 0)
+                except (TypeError, ValueError):
+                    issues.append(QualityIssue(
+                        code="item_bad_total", severity="warning", weight=5,
+                        where=f"row {idx}",
+                        message=f"Row {idx} total is not numeric: {it.get('total')!r}.",
+                    ))
+            stats["items_sum"] = round(item_total, 2)
+            # Compare against canonical total when both present (within 1 KZT tolerance).
             try:
-                item_total += float(it.get("total") or 0)
+                grand = float(canonical.get("subtotal_raw") or canonical.get("total_raw") or 0)
+                if item_total and grand and abs(item_total - grand) > 1.0:
+                    issues.append(QualityIssue(
+                        code="totals_mismatch", severity="error", weight=15,
+                        message=(f"Sum of line items ({item_total:.2f}) does not match "
+                                  f"document subtotal/total ({grand:.2f})."),
+                    ))
             except (TypeError, ValueError):
-                issues.append(QualityIssue(
-                    code="item_bad_total", severity="warning", weight=5,
-                    where=f"row {idx}",
-                    message=f"Row {idx} total is not numeric: {it.get('total')!r}.",
-                ))
-        stats["items_sum"] = round(item_total, 2)
-        # Compare against canonical total when both present (within 1 KZT tolerance).
-        try:
-            grand = float(canonical.get("subtotal_raw") or canonical.get("total_raw") or 0)
-            if item_total and grand and abs(item_total - grand) > 1.0:
-                issues.append(QualityIssue(
-                    code="totals_mismatch", severity="error", weight=15,
-                    message=(f"Sum of line items ({item_total:.2f}) does not match "
-                              f"document subtotal/total ({grand:.2f})."),
-                ))
-        except (TypeError, ValueError):
-            pass
+                pass
 
     # 3) Render-artifact level checks.
     if rendered_ext == "docx":
@@ -137,19 +150,21 @@ def check_render_quality(
         # table; its data-row count should equal the number of canonical
         # items we expected to render. Surfaces collapse bugs (parser found
         # N items, render produced 1 generic row) and expansion bugs alike.
-        rendered_rows = stats.get("docx_items_table_data_rows")
-        expected = stats.get("item_count") or 0
-        if rendered_rows is not None and expected and rendered_rows != expected:
-            issues.append(QualityIssue(
-                code="items_row_count_mismatch", severity="error", weight=20,
-                where=f"rendered={rendered_rows} expected={expected}",
-                message=(
-                    f"Items table rendered {rendered_rows} data row(s) but the "
-                    f"parsed intent expected {expected}. The proposal and the "
-                    "rendered document show different data — investigate "
-                    "tool/pipeline item override priority."
-                ),
-            ))
+        # Only meaningful for kinds that have a generic items table at all.
+        if kind in KINDS_WITH_TOTAL_ITEMS_CHECK:
+            rendered_rows = stats.get("docx_items_table_data_rows")
+            expected = stats.get("item_count") or 0
+            if rendered_rows is not None and expected and rendered_rows != expected:
+                issues.append(QualityIssue(
+                    code="items_row_count_mismatch", severity="error", weight=20,
+                    where=f"rendered={rendered_rows} expected={expected}",
+                    message=(
+                        f"Items table rendered {rendered_rows} data row(s) but the "
+                        f"parsed intent expected {expected}. The proposal and the "
+                        "rendered document show different data — investigate "
+                        "tool/pipeline item override priority."
+                    ),
+                ))
     elif rendered_ext == "xlsx":
         _check_xlsx(rendered_bytes, issues, stats)
     elif rendered_ext == "html":

@@ -258,6 +258,7 @@ class GenerationPipeline:
 
         # 5b2) Real QA on the rendered artifacts. Drives the approval gate (Phase 6).
         quality = check_render_quality(
+            kind=kind,
             canonical=canonical,
             rendered_bytes=doc_bytes, rendered_ext=ext,
             pdf_bytes=pdf_bytes,
