@@ -214,7 +214,7 @@ function AssistantPage() {
         </aside>
 
         {/* ── Chat window ── */}
-        <Card className="flex flex-col h-[calc(100vh-220px)] sm:h-[calc(100vh-240px)] overflow-hidden surface-spotlight">
+        <Card className="flex flex-col h-[calc(100vh-220px)] sm:h-[calc(100vh-240px)] overflow-hidden">
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4">
             {msgs.map((m, i) => (
               <div key={i} className={m.role === "user" ? "flex justify-end" : "flex gap-2.5"}>
@@ -232,7 +232,7 @@ function AssistantPage() {
                       {m.tools?.map((tc, idx) => <AssistantActionCard key={idx} tc={tc} />)}
                     </>
                   ) : (
-                    <div className="rounded-lg bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] px-3.5 py-2.5 text-[13px] leading-relaxed shadow-brand">
+                    <div className="rounded-lg bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] px-3.5 py-2.5 text-[13px] leading-relaxed shadow-md">
                       {m.content}
                     </div>
                   )}

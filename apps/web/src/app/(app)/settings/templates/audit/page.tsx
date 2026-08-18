@@ -56,7 +56,7 @@ export default function CorpusAuditPage() {
       {report && (
         <div className="space-y-6 animate-fadeIn">
           {/* ── Readiness hero ────────────────────────────────────────── */}
-          <Card className="surface-spotlight">
+          <Card>
             <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-6 items-start">
               <ScoreRing score={report.production_readiness.score} />
               <div className="space-y-3">

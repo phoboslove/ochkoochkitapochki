@@ -123,7 +123,7 @@ export function GreetingClock({ name }: { name?: string | null }) {
 
   if (clockStyle === "minimal") {
     return (
-      <div className="group relative surface-tinted surface-spotlight p-6 sm:p-7 flex items-center justify-center min-h-[176px]">
+      <div className="group relative surface-tinted p-6 sm:p-7 flex items-center justify-center min-h-[176px]">
         <button
           onClick={() => setPickerOpen((v) => !v)}
           className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity
@@ -141,7 +141,7 @@ export function GreetingClock({ name }: { name?: string | null }) {
   }
 
   return (
-    <div className="group relative surface-tinted surface-spotlight p-6 sm:p-7 flex flex-col justify-between min-h-[176px]">
+    <div className="group relative surface-tinted p-6 sm:p-7 flex flex-col justify-between min-h-[176px]">
       <button
         onClick={() => setPickerOpen((v) => !v)}
         className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity

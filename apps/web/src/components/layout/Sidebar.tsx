@@ -148,12 +148,10 @@ export function Sidebar() {
                           )}
                         >
                           {active && !collapsed && (
-                            <span className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r bg-[hsl(var(--brand))]
-                                             shadow-[0_0_8px_hsl(var(--brand)/0.6)]" />
+                            <span className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r bg-[hsl(var(--brand))]" />
                           )}
                           {active && collapsed && (
-                            <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[hsl(var(--brand))]
-                                             shadow-[0_0_6px_hsl(var(--brand)/0.7)]" />
+                            <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[hsl(var(--brand))]" />
                           )}
                           <Icon className={cn(
                             "h-4 w-4 shrink-0 transition-colors",

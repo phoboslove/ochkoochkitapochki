@@ -23,7 +23,7 @@ export function QuickCreateWidget() {
   };
 
   return (
-    <div className="surface-tinted surface-spotlight glow-accent p-6 sm:p-7 flex flex-col justify-between min-h-[176px]">
+    <div className="surface-elevated p-6 sm:p-7 flex flex-col justify-between min-h-[176px]">
       <div>
         <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[hsl(var(--brand))]">
           <Sparkles className="h-3.5 w-3.5" />

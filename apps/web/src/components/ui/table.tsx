@@ -43,10 +43,7 @@ export function SkeletonRow({ cols }: { cols: number }) {
     <TR>
       {Array.from({ length: cols }).map((_, i) => (
         <TD key={i}>
-          <div className="h-3 w-2/3 rounded bg-muted relative overflow-hidden">
-            <span className="absolute inset-0 -translate-x-full animate-shimmer
-                             bg-gradient-to-r from-transparent via-[hsl(var(--foreground)/0.12)] to-transparent" />
-          </div>
+          <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
         </TD>
       ))}
     </TR>

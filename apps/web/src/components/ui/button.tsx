@@ -15,9 +15,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         // Default is the brand-cobalt action — primary CTA in premium dark.
-        default:     "bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] shadow-sm hover:bg-[hsl(var(--brand)/0.92)] hover:shadow-brand",
+        default:     "bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] shadow-sm hover:bg-[hsl(var(--brand)/0.92)] hover:shadow-md",
         primary:     "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
-        brand:       "bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] shadow-sm hover:bg-[hsl(var(--brand)/0.92)] hover:shadow-brand",
+        brand:       "bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] shadow-sm hover:bg-[hsl(var(--brand)/0.92)] hover:shadow-md",
         secondary:   "bg-muted text-foreground hover:bg-muted/70",
         outline:     "border border-border bg-card text-foreground hover:bg-accent hover:border-[hsl(var(--brand)/0.4)]",
         ghost:       "text-foreground hover:bg-accent",
