@@ -37,8 +37,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       <aside className="w-[220px] shrink-0 border-r border-border flex flex-col">
-        <div className="h-14 flex items-center px-4 border-b border-border">
-          <Wordmark className="h-5 w-auto text-foreground" />
+        <div className="h-16 flex items-center px-4 border-b border-border">
+          <Wordmark className="h-[28px] w-auto text-foreground" />
         </div>
         <div className="px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">
           Platform Admin

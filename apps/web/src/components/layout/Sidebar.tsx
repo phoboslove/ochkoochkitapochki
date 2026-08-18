@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { Monogram } from "@/components/brand/Monogram";
 import { useApprovals } from "@/lib/hooks";
 import { useWorkspace } from "@/lib/workspace";
 import { useT } from "@/lib/i18n";
@@ -78,44 +79,40 @@ export function Sidebar() {
 
   const body = (
     <>
+      {/* Brand zone — never shares a row with the toggle. The toggle lives
+          on the sidebar's own right edge (see below), anchored to the full
+          <aside>, so its position only ever depends on the sidebar's own
+          width — it structurally cannot land on top of the logo in either
+          state. */}
       <div className={cn(
-        "h-14 flex items-center gap-2 px-4 border-b border-border",
-        collapsed ? "justify-center px-2" : "",
+        "h-16 flex items-center border-b border-border",
+        collapsed ? "justify-center px-2" : "gap-2 px-4",
       )}>
         {collapsed ? (
-          <div className="h-7 w-7 rounded-md bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] grid place-items-center text-[12px] font-semibold shadow-brand">
-            W
-          </div>
+          <Monogram className="h-8 w-8 shrink-0" />
         ) : (
-          <div className="leading-tight">
-            <Wordmark className="h-[22px] w-auto text-foreground" />
-            <div className="text-[10px] text-muted-foreground mt-0.5">{t("sidebar.brand_tagline")}</div>
+          <div className="leading-tight py-1">
+            <Wordmark className="h-[30px] w-auto text-foreground" />
+            <div className="text-[10px] text-muted-foreground mt-1.5">{t("sidebar.brand_tagline")}</div>
           </div>
-        )}
-        {!collapsed && (
-          <>
-            <button
-              onClick={toggleCollapsed}
-              className="ml-auto hidden md:inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-              title={t("sidebar.collapse")}
-            >
-              <PanelLeftClose className="h-3.5 w-3.5" />
-            </button>
-          </>
-        )}
-        {collapsed && (
-          <button
-            onClick={toggleCollapsed}
-            className="absolute right-1 top-3 h-6 w-6 grid place-items-center rounded-md text-muted-foreground hover:bg-accent"
-            title={t("sidebar.expand")}
-          >
-            <PanelLeftOpen className="h-3.5 w-3.5" />
-          </button>
         )}
         <button className="md:hidden ml-auto p-1 text-muted-foreground" onClick={() => setOpen(false)} aria-label="Close">
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Collapse/expand toggle — a floating tab on the sidebar's border,
+          vertically centered on the brand row, desktop-only. Its own
+          absolutely-positioned box, outside the brand row's flex flow. */}
+      <button
+        onClick={toggleCollapsed}
+        className="hidden md:flex absolute top-5 -right-3 h-6 w-6 items-center justify-center rounded-full
+                   border border-border bg-card text-muted-foreground shadow-xs
+                   hover:bg-accent hover:text-foreground transition-colors z-10"
+        title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
+      >
+        {collapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+      </button>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3">
         {GROUPS.map((g) => {
@@ -191,11 +188,10 @@ export function Sidebar() {
         <Menu className="h-4 w-4" />
       </button>
 
-      <aside className={cn(
-        "hidden md:flex flex-col shrink-0 border-r border-border bg-surface-2 relative",
-        collapsed ? "w-[56px]" : "w-[228px]",
-        "transition-[width] duration-200",
-      )}>
+      <aside
+        className="hidden md:flex flex-col shrink-0 border-r border-border bg-surface-2 relative transition-[width] duration-200"
+        style={{ width: collapsed ? 64 : 228 }}
+      >
         {body}
       </aside>
 
