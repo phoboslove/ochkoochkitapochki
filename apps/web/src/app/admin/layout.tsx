@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { AuthGuard } from "@/components/AuthGuard";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useMe, useLogout } from "@/lib/hooks";
-import { LayoutDashboard, Building2, CreditCard, LogOut } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, FileText, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/admin", label: "Дашборд", icon: LayoutDashboard, exact: true },
   { href: "/admin/companies", label: "Компании", icon: Building2 },
   { href: "/admin/plans", label: "Тарифы", icon: CreditCard },
+  { href: "/admin/documents", label: "Документы", icon: FileText },
 ];
 
 function AdminShell({ children }: { children: React.ReactNode }) {

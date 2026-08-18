@@ -181,3 +181,13 @@ export type AdminPlan = {
   billing_period: string; limit_documents_per_month: number; limit_users: number;
   limit_templates: number; allowed_integrations: string[] | null; is_active: boolean; sort_order: number;
 };
+
+export type QualityIssueOut = {
+  code: string; message: string; severity: "error" | "warning" | "info"; weight: number; where: string | null;
+};
+export type AdminDocument = {
+  id: string; company_id: string; title: string; type: string; status: string; created_at: string;
+  kind: string | null; document_number: string | null; recheck_available: boolean;
+  quality: { score: number; status: string; issue_count: number; issues: QualityIssueOut[] } | null;
+  approval: { id: string; status: string; summary: string } | null;
+};

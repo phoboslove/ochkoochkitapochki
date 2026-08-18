@@ -295,6 +295,11 @@ class GenerationPipeline:
                                "operational_score": template_op_score} if template else None),
                 "conversation_id": conversation_id,
                 "source_prompt": (prompt or "")[:1000],
+                # Full canonical context, kept so the admin "Recheck quality"
+                # action can re-run check_required_fields() later without
+                # needing to re-render — required-field rules can change
+                # (required_fields.py) independently of the artifact itself.
+                "canonical": canonical,
                 "render": {
                     "duration_ms": int((perf_counter() - t0) * 1000),
                     "format": ext, "mime": mime,

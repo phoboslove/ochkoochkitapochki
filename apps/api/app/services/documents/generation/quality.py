@@ -64,6 +64,26 @@ class QualityReport:
 
 # ── Public ──────────────────────────────────────────────────────────────────
 
+def check_required_fields(kind: str, canonical: dict[str, Any]) -> list[QualityIssue]:
+    """The declarative field-presence half of QA — pulled out of
+    check_render_quality() so it can be re-run on its own against a stored
+    canonical context, without needing the rendered artifact bytes. This is
+    what the admin "Recheck quality" action calls: rules can change (e.g. a
+    kind gets added to/removed from required_fields.py) and re-evaluating
+    just needs the same canonical snapshot captured at generation time.
+    """
+    issues: list[QualityIssue] = []
+    for rf in required_fields_for(kind):
+        v = canonical.get(rf.key)
+        is_missing = (not v) if rf.check == "list" else v in (None, "", "—", 0)
+        if is_missing:
+            issues.append(QualityIssue(
+                code=f"missing_{rf.key}", severity=rf.severity, weight=rf.weight,
+                message=f"{rf.label} is empty in the populated context.",
+            ))
+    return issues
+
+
 def check_render_quality(
     *,
     kind: str,
@@ -85,14 +105,7 @@ def check_render_quality(
     # 1) Required canonical fields — declarative per kind (required_fields.py).
     # No if/elif here by design: adding a new kind means adding one entry to
     # KIND_REQUIRED_FIELDS, not touching this function.
-    for rf in required_fields_for(kind):
-        v = canonical.get(rf.key)
-        is_missing = (not v) if rf.check == "list" else v in (None, "", "—", 0)
-        if is_missing:
-            issues.append(QualityIssue(
-                code=f"missing_{rf.key}", severity=rf.severity, weight=rf.weight,
-                message=f"{rf.label} is empty in the populated context.",
-            ))
+    issues.extend(check_required_fields(kind, canonical))
 
     # 2) Item table sanity — only for kinds that actually render a generic
     # {{items}} table with a single grand total (see KINDS_WITH_TOTAL_ITEMS_CHECK).
@@ -188,7 +201,12 @@ def check_render_quality(
             code="pipeline_warning", severity=sev, weight=weight, message=w,
         ))
 
-    # ── Score & status ────────────────────────────────────────────────────
+    return score_report(issues, stats)
+
+
+def score_report(issues: list[QualityIssue], stats: dict[str, Any]) -> QualityReport:
+    """Deduction → score → status. Shared by check_render_quality() and the
+    admin recheck action, which recomputes issues without re-touching stats."""
     deductions = sum(i.weight for i in issues)
     score = max(0, 100 - deductions)
     if score < QUALITY_BLOCK_THRESHOLD:

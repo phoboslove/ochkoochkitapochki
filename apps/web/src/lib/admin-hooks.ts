@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   api,
-  type AdminCompanyDetail, type AdminCompanyListItem, type AdminDashboard, type AdminPlan,
+  type AdminCompanyDetail, type AdminCompanyListItem, type AdminDashboard, type AdminDocument, type AdminPlan,
 } from "@/lib/api";
 
 export const useAdminDashboard = () =>
@@ -146,5 +146,18 @@ export function useAdminDisablePlan() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/admin/plans/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-plans"] }),
+  });
+}
+
+export function useAdminDocumentLookup() {
+  return useMutation({
+    mutationFn: (documentId: string) => api.get<AdminDocument>(`/admin/documents/${documentId}`),
+  });
+}
+
+export function useAdminRecheckQuality() {
+  return useMutation({
+    mutationFn: (documentId: string) =>
+      api.post<AdminDocument>(`/admin/documents/${documentId}/recheck-quality`),
   });
 }
