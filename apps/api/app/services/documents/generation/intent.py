@@ -37,6 +37,16 @@ _CLIENT_RE = re.compile(
 )
 _QTY_RE = re.compile(r"(?P<qty>\d+(?:[.,]\d+)?)\s*(?:шт|штук|pcs|x|×)\b", re.IGNORECASE)
 _VAT_RE = re.compile(r"(?:ндс|vat)\s*(?P<pct>\d{1,2})?", re.IGNORECASE)
+# Anchored to the salary keyword itself (unlike _AMOUNT_RE, which matches
+# any bare digit run) — this is what lets a deterministic parse of "оклад
+# 400000" win over an LLM's extra_fields.salary guess in registry.py's
+# "parser wins" merge, instead of the two ever silently disagreeing.
+_SALARY_RE = re.compile(
+    r"(?:оклад|зарплат[аеу]|зп|salary)\s*[:\-—]?\s*"
+    r"(?P<amount>\d[\d  .,]{0,20})\s*"
+    r"(?P<cur>kzt|тг|тенге|₸|т\.|usd|\$|eur|€|руб|rub)?",
+    re.IGNORECASE,
+)
 
 _CUR_MAP = {
     "kzt": "KZT", "тг": "KZT", "тенге": "KZT", "₸": "KZT", "т.": "KZT",
@@ -52,6 +62,7 @@ class IntentSpec:
     client_name: str | None = None
     counterparty_name: str | None = None
     total: float | None = None
+    salary: float | None = None
     currency: str = "KZT"
     item_description: str | None = None
     qty: float = 1.0
@@ -128,6 +139,17 @@ async def parse_intent(text: str) -> IntentSpec:
                 spec.currency = _CUR_MAP[cur_raw]
         except (ValueError, AttributeError):
             pass
+
+    # Salary (оклад) — separate from the generic `total` above: an HR
+    # document's salary and a commercial document's amount are unrelated
+    # concepts that happen to both be bare numbers, so this needs its own
+    # keyword-anchored match rather than reusing _AMOUNT_RE's zone-stripped
+    # search (which only strips a fixed set of invoice-ish lead-in words).
+    if m := _SALARY_RE.search(text):
+        amount = _coerce_amount(m.group("amount"))
+        if amount is not None:
+            spec.salary = amount
+            spec.confidence += 0.2
 
     # Qty / VAT.
     if m := _QTY_RE.search(text):

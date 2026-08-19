@@ -433,6 +433,14 @@ function DocumentProposalCard({ tc }: { tc: ToolCall }) {
               </dd>
             </>
           )}
+          {intent.salary != null && (
+            <>
+              <dt className="text-muted-foreground">Оклад</dt>
+              <dd className="tabular-nums font-medium">
+                {p.preview_context?.salary ?? intent.salary} {intent.currency ?? "KZT"}
+              </dd>
+            </>
+          )}
           {items.length > 0 && (
             <>
               <dt className="text-muted-foreground">Позиций</dt>

@@ -97,6 +97,17 @@ class GenerateDocumentArgs(BaseModel):
     qty: float = 1
     vat_percent: float | None = Field(None, description="VAT %; defaults to company accounting settings.")
     notes: str | None = None
+    salary: float | None = Field(
+        None,
+        description=(
+            "Monthly salary/оклад for hr_order and employment_contract, as a "
+            "plain number (e.g. 400000, not '400000 KZT'). Typed separately "
+            "from `total` — salary and a commercial document's amount are "
+            "unrelated concepts even though both are bare numbers in the "
+            "prompt. If unsure whether the user meant salary vs. total, "
+            "prefer salary for hr_order/employment_contract kinds."
+        ),
+    )
     extra_fields: dict[str, Any] | None = Field(
         None,
         description=(
@@ -115,11 +126,13 @@ class GenerateDocumentArgs(BaseModel):
             "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
             "never pre-computed running balances, the app computes those)\n"
             "  hr_order: employee_name, employee_iin, employee_position, "
-            "employee_department, hire_date, salary (number), probation_period\n"
+            "employee_department, hire_date, probation_period (salary is a "
+            "top-level arg, not here)\n"
             "  employment_contract: employee_name, employee_iin, employee_address, "
             "employee_id_doc, employee_position, employee_department, "
-            "work_start_date, contract_term, salary (number), pay_dates, "
-            "work_schedule, probation_period, vacation_days, city"
+            "work_start_date, contract_term, pay_dates, "
+            "work_schedule, probation_period, vacation_days, city (salary is "
+            "a top-level arg, not here)"
         ),
     )
 
@@ -162,6 +175,33 @@ def _merge_items_into_intent(intent, args) -> None:
     if args.total is not None:        intent.total = float(args.total)
     if args.item_description:         intent.item_description = args.item_description
     if args.qty is not None:          intent.qty = float(args.qty)
+
+
+def _merge_salary_into_intent(intent, args) -> None:
+    """Same "parser wins" priority as _merge_items_into_intent, for salary.
+
+    The deterministic ``оклад``-anchored regex in intent.py is trustworthy
+    when it matches at all (it only fires on the salary keyword itself, not
+    a bare number) — so it wins over whatever the LLM put in args.salary.
+    Without this, an LLM extraction slip (e.g. dropping the field, or
+    emitting a placeholder like 1) would silently override a correctly
+    parsed value with no cross-check anywhere in the pipeline.
+
+    Falls back to extra_fields["salary"] if the LLM ignored the schema and
+    put it there instead of the typed top-level arg — belt-and-suspenders
+    so a real value never gets silently dropped during the transition.
+    """
+    if intent.salary is not None:
+        return
+    if args.salary is not None:
+        intent.salary = float(args.salary)
+        return
+    legacy = (getattr(args, "extra_fields", None) or {}).get("salary")
+    if legacy is not None:
+        try:
+            intent.salary = float(legacy)
+        except (TypeError, ValueError):
+            pass
 
 
 def _serialize_items(items: list[DocumentLineItem] | None) -> list[dict[str, Any]] | None:
@@ -499,6 +539,17 @@ class ProposeDocumentArgs(BaseModel):
     qty: float = 1
     vat_percent: float | None = None
     notes: str | None = None
+    salary: float | None = Field(
+        None,
+        description=(
+            "Monthly salary/оклад for hr_order and employment_contract, as a "
+            "plain number (e.g. 400000, not '400000 KZT'). Typed separately "
+            "from `total` — salary and a commercial document's amount are "
+            "unrelated concepts even though both are bare numbers in the "
+            "prompt. If unsure whether the user meant salary vs. total, "
+            "prefer salary for hr_order/employment_contract kinds."
+        ),
+    )
     extra_fields: dict[str, Any] | None = Field(
         None,
         description=(
@@ -517,11 +568,13 @@ class ProposeDocumentArgs(BaseModel):
             "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
             "never pre-computed running balances, the app computes those)\n"
             "  hr_order: employee_name, employee_iin, employee_position, "
-            "employee_department, hire_date, salary (number), probation_period\n"
+            "employee_department, hire_date, probation_period (salary is a "
+            "top-level arg, not here)\n"
             "  employment_contract: employee_name, employee_iin, employee_address, "
             "employee_id_doc, employee_position, employee_department, "
-            "work_start_date, contract_term, salary (number), pay_dates, "
-            "work_schedule, probation_period, vacation_days, city"
+            "work_start_date, contract_term, pay_dates, "
+            "work_schedule, probation_period, vacation_days, city (salary is "
+            "a top-level arg, not here)"
         ),
     )
 
@@ -566,10 +619,12 @@ class ProposeDocumentTool(Tool):
         if args.currency: intent.currency = args.currency
         if args.vat_percent is not None: intent.vat_percent = float(args.vat_percent)
         _merge_items_into_intent(intent, args)
+        _merge_salary_into_intent(intent, args)
         log.info("propose.intent_resolved", kind=kind,
                   client=intent.client_name,
                   items_count=len(intent.parsed_items),
                   items_total=intent.total,
+                  salary=intent.salary,
                   parsed_from_prompt=bool(intent.parsed_items),
                   llm_items_supplied=bool(args.items))
 
@@ -603,11 +658,16 @@ class ProposeDocumentTool(Tool):
         alternatives = [_tpl_dict(t, s) for t, s in (match.alternatives or [])[:3]]
 
         # 4) Build canonical context to show preview values (no render).
+        # `salary` is a typed top-level arg (not extra_fields) as of the
+        # salary-loss fix — the "salary" key here comes last in the dict
+        # literal, so it wins even if the LLM ignored the schema and put a
+        # "salary" key inside extra_fields too.
+        overrides = {**(args.extra_fields or {}), "salary": intent.salary}
         business = await load_context(session, company_id)
         canonical = build_canonical_context(
             business=business, intent=intent,
             document_number="(будет назначен)",
-            overrides=args.extra_fields or {},
+            overrides=overrides,
         )
 
         # 5) Identify missing-but-recommended fields the operator should fill.
@@ -680,6 +740,7 @@ class ProposeDocumentTool(Tool):
             "intent": {
                 "client_name":  intent.client_name,
                 "total":        intent.total,
+                "salary":       intent.salary,
                 "currency":     intent.currency,
                 "vat_percent":  intent.vat_percent,
                 "confidence":   round(intent.confidence, 2),
@@ -705,6 +766,10 @@ class ProposeDocumentTool(Tool):
                 "vat":           canonical.get("vat"),
                 "vat_percent":   canonical.get("vat_percent"),
                 "total":         canonical.get("total"),
+                # Visible on the confirmation card BEFORE generation — a
+                # garbled salary used to be invisible until the rendered
+                # document, since this payload never included it at all.
+                "salary":        canonical.get("salary"),
             },
             "message": (
                 f"Готов подготовить {human_kind.lower()}"
@@ -839,10 +904,12 @@ class GenerateDocumentTool(Tool):
         if args.currency: intent.currency = args.currency
         if args.vat_percent is not None: intent.vat_percent = float(args.vat_percent)
         _merge_items_into_intent(intent, args)
+        _merge_salary_into_intent(intent, args)
         log.info("generate.intent_resolved", kind=kind,
                   client=intent.client_name,
                   items_count=len(intent.parsed_items),
                   items_total=intent.total,
+                  salary=intent.salary,
                   parsed_from_prompt=parsed_from_prompt,
                   llm_items_supplied=bool(args.items))
 
@@ -855,6 +922,12 @@ class GenerateDocumentTool(Tool):
             "vat_percent":      intent.vat_percent,
             "notes":            args.notes,
             **(args.extra_fields or {}),
+            # `salary` last and unconditional: it's a typed top-level arg now
+            # (not part of extra_fields), so intent.salary — already the
+            # parser-wins result of _merge_salary_into_intent — must win even
+            # if the LLM ignored the schema and stuffed a "salary" key into
+            # extra_fields anyway.
+            "salary":           intent.salary,
             # `parsed_items` is the canonical list of dicts after merge.
             "items":            list(intent.parsed_items) if intent.parsed_items else None,
         }
