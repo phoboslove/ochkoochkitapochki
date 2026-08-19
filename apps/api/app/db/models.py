@@ -26,6 +26,12 @@ class Company(Base):
     # Company memory — branding, invoice defaults, integrations config snapshots, etc.
     settings:  Mapped[dict] = mapped_column(JSON, default=dict)
     logo_key:  Mapped[str | None] = mapped_column(String, nullable=True)
+    # Storage keys for a future stamp/signature-image render feature — not
+    # wired into any rendering yet (deliberately out of scope for now), but
+    # added as real columns now so that feature doesn't need its own schema
+    # migration later. Nullable; untouched by anything today.
+    stamp_image_key:     Mapped[str | None] = mapped_column(String, nullable=True)
+    signature_image_key: Mapped[str | None] = mapped_column(String, nullable=True)
     # Legacy stub column — superseded by Subscription.plan_id (see
     # app/services/billing/). No longer read anywhere; kept only so old
     # rows don't need a backfill of this specific column.
@@ -169,6 +175,30 @@ class UsageCounter(Base):
     )
 
 
+class DocumentCounter(Base):
+    """Atomic per-(company, kind, year) document-numbering counter — same
+    single-upserted-row-plus-UPDATE pattern as UsageCounter above, so
+    document numbers no longer come from a live COUNT(*) over Document
+    rows (the previous approach, race-prone under concurrent generation).
+
+    ``year`` uses ``0`` as the sentinel for "this kind's numbering never
+    resets" rather than NULL — both SQLite and Postgres treat NULL as
+    distinct-from-itself in a UNIQUE constraint, so multiple "no reset"
+    counter rows for the same (company, kind) could otherwise slip past
+    uq_document_counters_company_kind_year undetected."""
+    __tablename__ = "document_counters"
+    id:            Mapped[str] = mapped_column(String, primary_key=True)
+    company_id:    Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    kind:          Mapped[str] = mapped_column(String, index=True)
+    year:          Mapped[int] = mapped_column(Integer, default=0)
+    current_value: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at:    Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "kind", "year", name="uq_document_counters_company_kind_year"),
+    )
+
+
 # ─── CRM ─────────────────────────────────────────────────────────────────────
 
 class Invitation(Base):
@@ -185,6 +215,10 @@ class Invitation(Base):
 
 
 class Client(Base):
+    """A company's counterparty (контрагент). Despite the table/class name —
+    kept as-is to avoid touching Invoice.client_id and the /clients API —
+    this is the same entity the rest of the app now calls "counterparty";
+    the two terms are interchangeable everywhere in this codebase."""
     __tablename__ = "clients"
     id:         Mapped[str] = mapped_column(String, primary_key=True)
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
@@ -192,7 +226,46 @@ class Client(Base):
     bin:        Mapped[str | None] = mapped_column(String, nullable=True)
     phone:      Mapped[str | None] = mapped_column(String, nullable=True)
     email:      Mapped[str | None] = mapped_column(String, nullable=True)
+    address:          Mapped[str | None] = mapped_column(String, nullable=True)
+    signatory_name:   Mapped[str | None] = mapped_column(String, nullable=True)
+    signatory_basis:  Mapped[str | None] = mapped_column(String, nullable=True)
+    bank_name:        Mapped[str | None] = mapped_column(String, nullable=True)
+    bank_bik:         Mapped[str | None] = mapped_column(String, nullable=True)
+    bank_iik:         Mapped[str | None] = mapped_column(String, nullable=True)
+    bank_kbe:         Mapped[str | None] = mapped_column(String, nullable=True)
+    vat_registered:   Mapped[bool] = mapped_column(Boolean, default=False)
+    vat_certificate_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    contact_person:   Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    # Nullable: backfilled to NULL for pre-existing rows by the migration
+    # that added this column (SQLite can't ALTER TABLE ADD COLUMN with a
+    # non-constant default) — populated going forward by default/onupdate.
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=_now, onupdate=_now, nullable=True)
+
+
+class Employee(Base):
+    """A company's employee, for HR documents (приказ о приёме, трудовой
+    договор, доверенность на доверенное лицо). Fuzzy-matched/autofilled the
+    same way as Client — see app/services/reference_data/."""
+    __tablename__ = "employees"
+    id:         Mapped[str] = mapped_column(String, primary_key=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    full_name:  Mapped[str] = mapped_column(String, index=True)  # nominative case, as given
+    iin:        Mapped[str | None] = mapped_column(String, nullable=True)
+    position:   Mapped[str | None] = mapped_column(String, nullable=True)
+    department: Mapped[str | None] = mapped_column(String, nullable=True)
+    hire_date:  Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    salary:     Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    allowances: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    probation_period: Mapped[str | None] = mapped_column(String, nullable=True)
+    work_schedule:    Mapped[str | None] = mapped_column(String, nullable=True)
+    vacation_days:    Mapped[int] = mapped_column(Integer, default=24)
+    address:          Mapped[str | None] = mapped_column(String, nullable=True)
+    id_doc_number:    Mapped[str | None] = mapped_column(String, nullable=True)
+    id_doc_issued_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    id_doc_date:      Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
 
 # ─── Documents ───────────────────────────────────────────────────────────────
