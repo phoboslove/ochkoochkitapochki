@@ -50,13 +50,8 @@ function VerifyEmailForm() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center p-6 bg-background relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[820px] rounded-full
-                        bg-[hsl(var(--brand)/0.18)] blur-3xl" />
-      </div>
-
-      <div className="relative w-[380px] max-w-full">
+    <div className="min-h-screen grid place-items-center p-6 bg-background">
+      <div className="w-[380px] max-w-full">
         <div className="mb-8 flex flex-col items-center text-center">
           <Wordmark className="h-10 w-auto text-foreground" />
           <div className="text-[11px] text-muted-foreground mt-2">AI backoffice operating system</div>
