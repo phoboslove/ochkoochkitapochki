@@ -15,6 +15,7 @@ from typing import Any
 
 from app.services.context.schema import BusinessContext
 from app.services.documents.generation.intent import IntentSpec
+from app.services.documents.generation.required_fields import KINDS_WITH_TOTAL_ITEMS_CHECK
 
 
 def _money(v: float | Decimal) -> str:
@@ -36,14 +37,29 @@ def build_canonical_context(
     c = business.company
     a = business.accounting
     bank = c.bank
-    items = intent.line_items()
     overrides = overrides or {}
 
-    subtotal = Decimal(str(intent.total or 0))
-    vat_rate = (intent.vat_percent if intent.vat_percent is not None
-                else (a.vat_percent if a.vat_enabled else 0)) or 0
-    vat_amount = (subtotal * Decimal(str(vat_rate)) / Decimal("100")).quantize(Decimal("0.01"))
-    total = subtotal + vat_amount
+    # Items/subtotal/VAT/total only make sense for kinds that actually
+    # render a generic items table with a single grand total (the same
+    # KINDS_WITH_TOTAL_ITEMS_CHECK gate the quality checks already use).
+    # Without this, `intent.total` — a generic "first bare number in the
+    # prompt" parse, unrelated to whether this kind even has a total —
+    # would synthesize a fake single-row item for every other kind (e.g.
+    # an hr_order's "оклад 250000" or an accidentally-matched date getting
+    # picked up as `total`), showing as a bogus "Позиций: 1" on a document
+    # that has no items at all.
+    is_commercial = intent.kind in KINDS_WITH_TOTAL_ITEMS_CHECK
+    items = intent.line_items() if is_commercial else []
+
+    if is_commercial:
+        subtotal = Decimal(str(intent.total or 0))
+        vat_rate = (intent.vat_percent if intent.vat_percent is not None
+                    else (a.vat_percent if a.vat_enabled else 0)) or 0
+        vat_amount = (subtotal * Decimal(str(vat_rate)) / Decimal("100")).quantize(Decimal("0.01"))
+        total = subtotal + vat_amount
+    else:
+        subtotal = vat_amount = total = Decimal("0")
+        vat_rate = 0
 
     issue = intent.issue_date or date.today()
     due = issue + timedelta(days=a.due_in_days_default)
