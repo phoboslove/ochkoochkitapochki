@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Client, Company, Invoice
 from app.services.audit.logger import AuditLogger
 from app.services.documents.render import get_renderer
+from app.services.reference_data.matcher import resolve_counterparty
 from app.services.storage import get_storage
 from app.services.templates.service import TemplateService
 
@@ -70,33 +71,21 @@ class InvoiceService:
         return (await self.templates.get_default(session, company_id, kind)), m
 
     async def _find_or_create_client(self, session: AsyncSession, company_id: str, name: str) -> Client:
-        existing = await session.scalar(
-            select(Client).where(
-                Client.company_id == company_id,
-                func.lower(Client.name) == name.lower(),
-            ),
-        )
-        if existing:
-            return existing
-        # Near-duplicate guard — surface "possible duplicate" into the activity center.
-        first_token = (name.lower().split() or [""])[0]
-        if first_token:
-            candidates = list(await session.scalars(
-                select(Client).where(
-                    Client.company_id == company_id,
-                    func.lower(Client.name).like(f"%{first_token}%"),
-                ).limit(3),
-            ))
-            if candidates:
-                await self.audit.record(
-                    session, company_id=company_id, actor_type="system",
-                    action="client.possible_duplicate",
-                    meta={"new": name, "candidates": [c.name for c in candidates]},
-                )
-        client = Client(id=_id("cl"), company_id=company_id, name=name)
-        session.add(client)
-        await session.flush()
-        return client
+        """Fuzzy-matches via the shared reference_data resolver (also used by
+        the AI document pipeline) instead of a bespoke exact/substring scan —
+        one matching implementation instead of two that could quietly drift
+        apart. A low-confidence match still gets used (same behavior as the
+        old substring-based near-duplicate guard did — never blocking invoice
+        creation on an ambiguous name), just logged instead of silently
+        accepted."""
+        resolved = await resolve_counterparty(session, company_id, name)
+        if resolved.low_confidence:
+            await self.audit.record(
+                session, company_id=company_id, actor_type="system",
+                action="client.possible_duplicate",
+                meta={"new": name, "matched": resolved.record.name, "score": resolved.match_score},
+            )
+        return resolved.record
 
     # ── render ─────────────────────────────────────────────────────────────
 

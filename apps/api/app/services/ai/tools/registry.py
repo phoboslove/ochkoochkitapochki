@@ -7,7 +7,7 @@ Guardrails enforced by the orchestrator before any tool runs:
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -460,6 +460,75 @@ class CalculateTurnoverTaxTool(Tool):
             return {"error": "invalid_input", "message": str(exc)}
 
 
+class UpdateReferenceDataArgs(BaseModel):
+    entity_type: Literal["counterparty", "employee"] = Field(
+        ..., description="Which reference-data table to patch.",
+    )
+    mentioned_name: str = Field(
+        ...,
+        description="The name/ФИО as the user referred to it — fuzzy-matched against "
+                    "existing counterparty/employee records, same matching used to "
+                    "autofill documents.",
+    )
+    fields: dict[str, Any] = Field(
+        ...,
+        description=(
+            "Field=value pairs to patch, using exactly these key names:\n"
+            "  counterparty: bin, phone, email, address, signatory_name, "
+            "signatory_basis, bank_name, bank_bik, bank_iik, bank_kbe, "
+            "vat_registered (true/false), vat_certificate_number, contact_person\n"
+            "  employee: iin, position, department, hire_date, salary (number), "
+            "allowances (number), probation_period, work_schedule, "
+            "vacation_days (number), address, id_doc_number, id_doc_issued_by, "
+            "id_doc_date\n"
+            "Include only what the user actually gave you in this message."
+        ),
+    )
+
+
+class UpdateReferenceDataTool(Tool):
+    name = "update_reference_data"
+    description = (
+        "Patch an existing counterparty (контрагент) or employee record with field "
+        "values the user just gave you in a follow-up chat message — e.g. 'БИН "
+        "Ромашки 123456789012' or 'у Асанова оклад теперь 450000'. Call this instead "
+        "of asking the user to repeat information that should just be saved. Does "
+        "NOT create new records — call propose_document/generate_document for that "
+        "flow instead. If no close-enough name match exists, this returns an error; "
+        "ask the user to clarify which company/person they mean."
+    )
+    args_model = UpdateReferenceDataArgs
+    danger = "write"
+    min_role = "MEMBER"
+
+    async def run(self, session, company_id, actor_id, args: UpdateReferenceDataArgs, *, conversation_id=None):
+        from app.services.reference_data.service import apply_one_line_update
+        result = await apply_one_line_update(
+            session, company_id, args.entity_type, args.mentioned_name, args.fields,
+        )
+        if result is None:
+            noun = "контрагента" if args.entity_type == "counterparty" else "сотрудника"
+            return {
+                "error": "no_match",
+                "message": f"Не нашёл {noun} «{args.mentioned_name}» — уточните "
+                           "название/ФИО, или создайте запись через страницу "
+                           "контрагентов/сотрудников.",
+            }
+        record, rejected = result
+        display_name = record.name if args.entity_type == "counterparty" else record.full_name
+        message = f"Обновил данные «{display_name}»."
+        if rejected:
+            message += f" Поля {', '.join(rejected)} не распознаны и пропущены."
+        return {
+            "updated": True,
+            "entity_type": args.entity_type,
+            "id": record.id,
+            "name": display_name,
+            "rejected_fields": rejected,
+            "message": message,
+        }
+
+
 # ─── Registry ────────────────────────────────────────────────────────────────
 
 class ToolRegistry:
@@ -486,6 +555,7 @@ class ToolRegistry:
             CreateInvoiceTool(), ListInvoicesTool(),
             ProposeDocumentTool(), GenerateDocumentTool(),
             GetTaxInfoTool(), CalculateSalaryTool(), CalculateTurnoverTaxTool(),
+            UpdateReferenceDataTool(),
         ])
 
 

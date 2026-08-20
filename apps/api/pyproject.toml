@@ -35,6 +35,7 @@ dependencies = [
   "striprtf>=0.0.26",
   "num2words>=0.5.13",
   "langdetect>=1.0.9",
+  "rapidfuzz>=3.9",
 ]
 
 [project.optional-dependencies]
