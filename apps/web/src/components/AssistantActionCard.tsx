@@ -500,22 +500,49 @@ function DocumentProposalCard({ tc }: { tc: ToolCall }) {
           </div>
         )}
 
-        {/* Missing fields */}
-        {missing.length > 0 && (
-          <div className="rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-2.5 py-2 text-[11.5px]">
-            <div className="flex items-center gap-1.5 font-medium text-[hsl(var(--warning))] mb-0.5">
-              <AlertTriangle className="h-3.5 w-3.5" /> Не хватает данных
+        {/* Missing fields — grouped by why: things the system genuinely
+            can't know (ask_user) vs. an existing reference-data record
+            that's just missing some optional details
+            (incomplete_reference_data). One combined message per group,
+            not a question-by-question back-and-forth. */}
+        {missing.length > 0 && (() => {
+          const toAsk = missing.filter((m: any) => m.reason !== "incomplete_reference_data");
+          const incomplete = missing.filter((m: any) => m.reason === "incomplete_reference_data");
+          return (
+            <div className="space-y-2">
+              {toAsk.length > 0 && (
+                <div className="rounded-md ring-1 ring-[hsl(var(--warning)/0.3)] bg-warning-bg px-2.5 py-2 text-[11.5px]">
+                  <div className="flex items-center gap-1.5 font-medium text-[hsl(var(--warning))] mb-0.5">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Не хватает данных
+                  </div>
+                  <ul className="text-muted-foreground space-y-0.5">
+                    {toAsk.map((m: any, i: number) => (
+                      <li key={i}>• {m.label} {m.hint && <span className="opacity-70">— {m.hint}</span>}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-1 text-[11px] text-muted-foreground/80">
+                    Можно подтвердить как есть — поля будут пустыми, или уточните одним сообщением.
+                  </div>
+                </div>
+              )}
+              {incomplete.length > 0 && (
+                <div className="rounded-md ring-1 ring-border bg-surface-2 px-2.5 py-2 text-[11.5px]">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground/80 mb-0.5">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Данные из справочника неполные
+                  </div>
+                  <ul className="text-muted-foreground space-y-0.5">
+                    {incomplete.map((m: any, i: number) => (
+                      <li key={i}>• {m.label}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-1 text-[11px] text-muted-foreground/80">
+                    Дополните одним сообщением — запись в справочнике обновится сама.
+                  </div>
+                </div>
+              )}
             </div>
-            <ul className="text-muted-foreground space-y-0.5">
-              {missing.map((m: any, i: number) => (
-                <li key={i}>• {m.label} {m.hint && <span className="opacity-70">— {m.hint}</span>}</li>
-              ))}
-            </ul>
-            <div className="mt-1 text-[11px] text-muted-foreground/80">
-              Можно подтвердить как есть — поля будут пустыми, или уточните одним сообщением.
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border">
