@@ -43,6 +43,11 @@ def _stage(stage: str, company_id: str, **kw: Any) -> None:
 orchestrator = AIOrchestrator()
 audit = AuditLogger()
 
+# Kinds with no client/items/total at all — _try_deterministic_propose
+# below gives these their own signal check and arg-building instead of
+# forcing them through the commercial (client/items/total) merge logic.
+_HR_KINDS = frozenset({"hr_order", "employment_contract"})
+
 
 # ── Linking ────────────────────────────────────────────────────────────────
 
@@ -461,21 +466,22 @@ async def _try_deterministic_propose(
     just sent details.
     """
     from app.services.documents.generation.intent import parse_intent
+    from app.services.documents.generation.classifier import KIND_LEXICON
     from app.services.ai.tools.registry import ProposeDocumentTool, ProposeDocumentArgs
 
     low = (text or "").lower()
     detected_kind: str | None = locked_kind
     if detected_kind is None:
-        kind_keywords = [
-            ("invoice",      ["счёт", "счет", "инвойс", "invoice"]),
-            ("act",          ["акт"]),
-            ("nakladnaya",   ["накладн", "ттн", "торг-12"]),
-            ("contract",     ["контракт", "договор", "contract", "agreement"]),
-            ("trust_letter", ["доверенност", "trust letter"]),
-        ]
+        # Was a hand-maintained 5-kind table (missing hr_order/
+        # employment_contract/contract_services/contract_supply/
+        # act_reconciliation entirely, so the no-AI-key fallback could
+        # never even detect an HR document existed) — now the same
+        # lexicon classify_kind() itself falls back to when no AI key
+        # is configured, so this deterministic pre-check and the LLM
+        # fallback agree on what kind of document a keyword implies.
         intent_keywords = ("создай", "создать", "сделай", "сформируй", "выстав", "оформ",
                             "сгенери", "давай", "make", "create", "issue")
-        for k, words in kind_keywords:
+        for k, words in KIND_LEXICON:
             if any(w in low for w in words):
                 detected_kind = k
                 break
@@ -493,6 +499,59 @@ async def _try_deterministic_propose(
                       "услуги", "товары", "работы", "контрагент"):
             cleaned = cleaned.split(stop, 1)[0].strip().rstrip(",.;:—-")
         spec.client_name = cleaned or None
+
+    # HR kinds have no client/items/total at all — they need their own
+    # signal check and their own arg-building instead of being forced
+    # through the commercial merge logic below. spec.client_name here is
+    # reinterpreted as employee_name: the connector regex that catches
+    # "для X"/"клиент X" also fires on "приказ для Иванова..." with no
+    # way to tell it's an employee, not a customer, until we already know
+    # detected_kind is an HR kind.
+    if detected_kind in _HR_KINDS:
+        has_signal = spec.salary is not None or bool(spec.client_name)
+        if not has_signal:
+            return False
+
+        _stage("deterministic_propose", user.company_id, user_id=user.id,
+                kind=detected_kind, employee=spec.client_name, salary=spec.salary,
+                conversation_id=conversation_id, locked_kind=locked_kind)
+
+        args = ProposeDocumentArgs(
+            kind=detected_kind, prompt=text,
+            employee_name=spec.client_name,
+            salary=spec.salary,
+        )
+        tool = ProposeDocumentTool()
+        try:
+            proposal_result = await tool.run(session, user.company_id, user.id, args)
+        except Exception:  # noqa: BLE001
+            log.exception("telegram.deterministic_propose_failed",
+                           company_id=user.company_id, user_id=user.id)
+            return False
+
+        await _persist_proposal_from_result(
+            session, user=user, chat_id=chat_id, text=text,
+            result={"reply": "", "tool_calls": [
+                {"name": "propose_document", "args": args.model_dump(),
+                 "result": proposal_result},
+            ]},
+            conversation_id=conversation_id,
+        )
+
+        reply, buttons = _format_assistant_reply({
+            "reply": "", "tool_calls": [
+                {"name": "propose_document", "args": {}, "result": proposal_result},
+            ],
+        })
+        await _safe_send_with_buttons(provider, chat_id, reply, buttons)
+        await audit.record(session, company_id=user.company_id, actor_type="user",
+                           actor_id=user.id, action="telegram.deterministic_propose",
+                           meta={"text": text[:200], "kind": detected_kind,
+                                 "locked": bool(locked_kind),
+                                 "employee": spec.client_name,
+                                 "salary": spec.salary,
+                                 "conversation_id": conversation_id})
+        return True
 
     # Lock-mode is more permissive: even ONE new item is enough signal to
     # update the proposal because the user is clearly amending the active
@@ -714,11 +773,21 @@ def _format_assistant_reply(result: dict[str, Any]) -> tuple[str, list[list[Inli
             if intent.get("client_name"): lines.append(f"Клиент: *{intent['client_name']}*")
             if intent.get("total") is not None:
                 lines.append(f"Сумма: *{intent['total']} {intent.get('currency') or 'KZT'}*")
+            if intent.get("salary") is not None:
+                lines.append(f"Оклад: *{intent['salary']} {intent.get('currency') or 'KZT'}*")
             if r.get("items_count"):    lines.append(f"Позиций: *{r['items_count']}*")
             lines.append(f"Шаблон: _{tpl}_")
+            # Split by reason, same distinction as the web proposal card:
+            # things the system genuinely can't know vs. an existing
+            # reference-data record just missing some optional details.
             missing = r.get("missing_fields") or []
-            if missing:
-                lines.append("⚠ Не хватает: " + ", ".join(m.get("label") or m.get("field") for m in missing))
+            to_ask = [m for m in missing if m.get("reason") != "incomplete_reference_data"]
+            incomplete = [m for m in missing if m.get("reason") == "incomplete_reference_data"]
+            if to_ask:
+                lines.append("⚠ Не хватает: " + ", ".join(m.get("label") or m.get("field") for m in to_ask))
+            if incomplete:
+                lines.append("ℹ Уточните для справочника: " +
+                              ", ".join(m.get("label") or m.get("field") for m in incomplete))
             lines.append("\nОтветьте *да* / *создай* для подтверждения, или уточните детали.")
             text = "\n".join(lines)
             break

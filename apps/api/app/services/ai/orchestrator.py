@@ -334,12 +334,16 @@ _CLIENT_RE = re.compile(
 )
 
 
-_DOC_KIND_HINTS = [
-    ("act",          ["акт"]),
-    ("nakladnaya",   ["накладн", "тн ", "торг-12"]),
-    ("contract",     ["контракт", "договор"]),
-    ("trust_letter", ["доверенност"]),
-]
+# Was its own 4-kind table (missing hr_order/employment_contract/
+# contract_services/contract_supply/act_reconciliation entirely, so this
+# no-AI-key fallback could never even detect an HR/reconciliation
+# document existed) — now the same lexicon classify_kind() itself falls
+# back to, so every fallback path in the app agrees on what a keyword
+# implies. "invoice" is excluded — it has its own create_invoice-shaped
+# handling right below this table, not a propose_document one.
+from app.services.documents.generation.classifier import KIND_LEXICON as _KIND_LEXICON
+
+_DOC_KIND_HINTS = [(k, words) for k, words in _KIND_LEXICON if k != "invoice"]
 
 
 # Confirmation phrases that flip the fallback parser from propose → generate.
