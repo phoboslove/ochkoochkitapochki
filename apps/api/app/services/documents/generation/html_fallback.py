@@ -4,6 +4,16 @@ Always produces a readable, printable KZ-style document. Used so the AI
 pipeline never returns "couldn't generate" — the user gets *something* real,
 just visually generic.
 
+Dispatches on kind: KINDS_WITH_TOTAL_ITEMS_CHECK kinds (invoice/act/
+nakladnaya/contract_supply) get the commercial layout — parties, items
+table, VAT totals — since that's what those documents actually are. Every
+other kind (hr_order, trust_letter, act_reconciliation, contract, ...) gets
+a generic field-list layout driven by required_fields.DOCUMENT_SCHEMAS,
+in schema order, with each field's own label. Before this split, EVERY
+kind got the commercial layout regardless of shape — a приказ о приёме
+rendered as a blank invoice ("Заказчик", an empty items table, "Итого к
+оплате: 0.00") whenever no VERIFIED template existed for it.
+
 SECURITY: all interpolated user-supplied values pass through ``_e()`` which
 HTML-escapes them. The fallback is rendered into an iframe in the preview UI
 and exported to PDF via xhtml2pdf; raw user input without escaping would be
@@ -15,18 +25,9 @@ from __future__ import annotations
 from html import escape as _html_escape
 from typing import Any
 
-_HUMAN_TITLE = {
-    "invoice":      "Счёт на оплату",
-    "act":          "Акт выполненных работ",
-    "nakladnaya":   "Товарная накладная",
-    "contract":     "Договор",
-    "trust_letter": "Доверенность",
-    "contract_services":  "Договор оказания услуг",
-    "contract_supply":    "Договор поставки",
-    "act_reconciliation": "Акт сверки взаиморасчётов",
-    "hr_order":            "Приказ о приёме на работу",
-    "employment_contract": "Трудовой договор",
-}
+from app.services.documents.generation.required_fields import (
+    KINDS_WITH_TOTAL_ITEMS_CHECK, fields_for, human_kind_for,
+)
 
 
 def _e(value: Any) -> str:
@@ -49,29 +50,7 @@ _FONT_FACES = f"""
   @font-face {{ font-family: 'DocSerif'; font-weight: bold; font-style: italic; src: url('{_LIBERATION_SERIF}-BoldItalic.ttf'); }}
 """
 
-
-def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
-    title = _e(_HUMAN_TITLE.get(kind, "Документ"))
-    items_rows = "".join(
-        f"<tr><td class='c'>{_e(it.get('idx'))}</td><td>{_e(it.get('name'))}</td>"
-        f"<td class='r'>{_e(it.get('qty'))}</td>"
-        f"<td class='r'>{_e(it.get('price_fmt'))}</td>"
-        f"<td class='r'>{_e(it.get('total_fmt'))}</td></tr>"
-        for it in context.get("items") or []
-    ) or (
-        "<tr><td colspan='5' class='muted c'>— нет позиций —</td></tr>"
-    )
-
-    vat_row = (
-        f"<div><span>НДС ({_e(context.get('vat_percent') or 0)}%)</span>"
-        f"<span>{_e(context.get('vat'))} {_e(context['currency'])}</span></div>"
-        if context.get("vat_raw") else ""
-    )
-
-    return f"""<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"/>
-<title>{title} {_e(context['document_number'])}</title>
-<style>
+_BASE_STYLE = f"""
   {_FONT_FACES}
   @page {{ size: A4; margin: 18mm 16mm; }}
   /* xhtml2pdf's CSS parser doesn't extract font-family out of the `font`
@@ -97,10 +76,58 @@ def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
                 text-align:center; color:#555; font-size:11px; }}
   .muted {{ color:#777; }}
   .words {{ margin-top:10px; font-style:italic; }}
-</style></head><body>
-  <h1>{title} № {_e(context['document_number'])}</h1>
-  <div class="meta">от {_e(context['document_date'])}</div>
+  .fields {{ margin-top:18px; }}
+  .fields .row {{ display:flex; gap:12px; padding:5px 0; border-bottom:1px solid #eee; }}
+  .fields .row:last-child {{ border-bottom:none; }}
+  .fields .label {{ width:220px; flex-shrink:0; color:#555; }}
+  .fields .value {{ flex:1; }}
+"""
 
+
+def _shell(*, title: str, document_number: str, document_date: str, body: str) -> str:
+    return f"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"/>
+<title>{title} {_e(document_number)}</title>
+<style>{_BASE_STYLE}</style></head><body>
+  <h1>{title} № {_e(document_number)}</h1>
+  <div class="meta">от {_e(document_date)}</div>
+  {body}
+</body></html>"""
+
+
+def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
+    title = _e(human_kind_for(kind))
+    if kind in KINDS_WITH_TOTAL_ITEMS_CHECK:
+        body = _render_commercial_body(context)
+    else:
+        body = _render_generic_body(kind, context)
+    return _shell(
+        title=title, document_number=context["document_number"],
+        document_date=context["document_date"], body=body,
+    )
+
+
+# ── Commercial layout (invoice/act/nakladnaya/contract_supply) ─────────────
+# Parties + items table + VAT totals — unchanged from before the kind split.
+
+def _render_commercial_body(context: dict[str, Any]) -> str:
+    items_rows = "".join(
+        f"<tr><td class='c'>{_e(it.get('idx'))}</td><td>{_e(it.get('name'))}</td>"
+        f"<td class='r'>{_e(it.get('qty'))}</td>"
+        f"<td class='r'>{_e(it.get('price_fmt'))}</td>"
+        f"<td class='r'>{_e(it.get('total_fmt'))}</td></tr>"
+        for it in context.get("items") or []
+    ) or (
+        "<tr><td colspan='5' class='muted c'>— нет позиций —</td></tr>"
+    )
+
+    vat_row = (
+        f"<div><span>НДС ({_e(context.get('vat_percent') or 0)}%)</span>"
+        f"<span>{_e(context.get('vat'))} {_e(context['currency'])}</span></div>"
+        if context.get("vat_raw") else ""
+    )
+
+    return f"""
   <div class="parties">
     <div>
       <b>Исполнитель</b><br/>
@@ -141,5 +168,65 @@ def render_fallback_html(*, kind: str, context: dict[str, Any]) -> str:
     <div>
       <div class="line">Заказчик</div>
     </div>
+  </div>"""
+
+
+# ── Generic layout (every other kind) ───────────────────────────────────────
+# Company letterhead box (every document needs one) + every field the
+# unified schema declares for this kind, in schema order, using the
+# field's own label — no parties/items/VAT sections that don't apply.
+
+def _render_generic_body(kind: str, context: dict[str, Any]) -> str:
+    company_box = f"""
+  <div class="parties">
+    <div>
+      <b>Исполнитель</b><br/>
+      <b style="font-size:13px">{_e(context['company_name'])}</b><br/>
+      БИН {_e(context['company_bin'])}<br/>
+      {_e(context['company_address'])}<br/>
+      {_e(context['company_bank'])}
+    </div>
+  </div>"""
+
+    rows: list[str] = []
+    for field in fields_for(kind):
+        if field.source in ("company", "system"):
+            continue  # already covered by the header + company box above
+        if field.check == "list":
+            rows.append(_operations_table(field.label, context))
+            continue
+        value = context.get(field.key)
+        rows.append(
+            f'<div class="row"><div class="label">{_e(field.label)}</div>'
+            f'<div class="value">{_e(value) or "—"}</div></div>',
+        )
+
+    return company_box + f'\n  <div class="fields">{"".join(rows)}</div>'
+
+
+def _operations_table(label: str, context: dict[str, Any]) -> str:
+    ops = context.get("operations") or []
+    rows = "".join(
+        f"<tr><td class='c'>{_e(op.get('idx'))}</td><td>{_e(op.get('date'))}</td>"
+        f"<td>{_e(op.get('doc_ref'))}</td>"
+        f"<td class='r'>{_e(op.get('debit_fmt'))}</td>"
+        f"<td class='r'>{_e(op.get('credit_fmt'))}</td>"
+        f"<td class='r'>{_e(op.get('balance_fmt'))}</td></tr>"
+        for op in ops
+    ) or "<tr><td colspan='6' class='muted c'>— нет операций —</td></tr>"
+
+    return f"""
+  <div class="fields">
+    <div class="row"><div class="label">{_e(label)}</div><div class="value"></div></div>
   </div>
-</body></html>"""
+  <table>
+    <thead><tr>
+      <th class="c">№</th><th>Дата</th><th>Документ</th>
+      <th class="r">Дебет</th><th class="r">Кредит</th><th class="r">Сальдо</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+  <div class="totals">
+    <div class="grand"><span>Конечное сальдо</span>
+      <span>{_e(context.get('closing_balance'))} {_e(context.get('currency'))}</span></div>
+  </div>"""
