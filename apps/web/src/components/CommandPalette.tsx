@@ -36,7 +36,8 @@ const PAGES: Result[] = [
   { kind: "page", id: "p-act",   label: "Activity",    sub: "Operational timeline",    href: "/activity",      icon: Activity },
   { kind: "page", id: "p-ai",    label: "AI Assistant",sub: "Run operational tools",   href: "/assistant",     icon: Sparkles },
   { kind: "page", id: "p-wf",    label: "Workflows",   sub: "Triggers + runs",         href: "/workflows",     icon: Workflow },
-  { kind: "page", id: "p-cl",    label: "Clients",     sub: "Counterparties",          href: "/clients",       icon: Users },
+  { kind: "page", id: "p-cl",    label: "Counterparties", sub: "Контрагенты",          href: "/counterparties", icon: Users },
+  { kind: "page", id: "p-emp",   label: "Employees",   sub: "Сотрудники",              href: "/employees",     icon: Users },
   { kind: "page", id: "p-int",   label: "Integrations",sub: "WhatsApp · Telegram",     href: "/integrations",  icon: Plug },
   { kind: "page", id: "p-co",    label: "Business",    sub: "Company configuration",   href: "/settings",      icon: Building2 },
 ];
@@ -89,7 +90,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     }));
     const cls: Result[] = (kw?.clients ?? []).slice(0, 6).map((c: any) => ({
       kind: "client", id: `cl-${c.id}`, label: c.name, sub: c.bin || c.phone || "",
-      href: `/clients`, icon: Users,
+      href: `/counterparties`, icon: Users,
     }));
     return [...pageHits, ...invs, ...docs, ...cls];
   }, [open, q, search, recent]);

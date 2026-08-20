@@ -19,6 +19,10 @@ class BankDetails(BaseModel):
     bik: str | None = None
     account: str | None = None
     swift: str | None = None
+    # РК-specific — distinct from `account`/`iban` above (kept for existing
+    # non-KZ/legacy data), used by KZ document templates.
+    iik: str | None = None
+    kbe: str | None = None
 
 
 class CompanyProfile(BaseModel):
@@ -28,12 +32,23 @@ class CompanyProfile(BaseModel):
     country_code: str = "KZ"
     currency: str = "KZT"
     timezone: str = "Asia/Almaty"
+    # `address` stays as the general-purpose address already read everywhere
+    # (context_builder.py's company_address canonical key) — legal/actual
+    # are additive, for documents that need the RK legal-vs-actual split
+    # explicitly. Wiring which one is used where is a later commit.
     address: str | None = None
+    legal_address: str | None = None
+    actual_address: str | None = None
+    city: str | None = None
     phone: str | None = None
     email: EmailStr | None = None
     website: str | None = None
     director_name: str | None = None
+    director_basis: str | None = None  # "Устав" / "Доверенность №... от..."
     accountant_name: str | None = None
+    vat_registered: bool = False
+    vat_certificate_number: str | None = None
+    oked_code: str | None = None
     bank: BankDetails = Field(default_factory=BankDetails)
 
 

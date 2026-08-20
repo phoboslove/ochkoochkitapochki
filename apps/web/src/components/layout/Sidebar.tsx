@@ -6,7 +6,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Sparkles, FileText, Receipt, BarChart3, Workflow,
   Users, Plug, ScrollText, Building2, ShieldCheck, Menu, X,
-  Activity, LifeBuoy, UserPlus, Gauge, Rocket, Calculator,
+  Activity, LifeBuoy, UserPlus, Gauge, Rocket, Calculator, IdCard,
   PanelLeftClose, PanelLeftOpen, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,8 @@ const GROUPS: NavGroup[] = [
   {
     key: "management", labelKey: "nav.group.management",
     items: [
-      { href: "/clients",   labelKey: "nav.clients",    icon: Users },
+      { href: "/counterparties", labelKey: "nav.clients",    icon: Users },
+      { href: "/employees",      labelKey: "nav.employees",  icon: IdCard },
       { href: "/team",      labelKey: "nav.team",       icon: UserPlus },
       { href: "/reports",   labelKey: "nav.reports",    icon: BarChart3 },
       { href: "/calculators", labelKey: "nav.calculators", icon: Calculator },

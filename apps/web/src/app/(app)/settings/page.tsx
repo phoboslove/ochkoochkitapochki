@@ -121,9 +121,28 @@ function CompanySection({ ctx }: { ctx: any }) {
         <Field label="Phone"><Text value={f.phone} onChange={(v) => ed.setField("phone", v)} /></Field>
         <Field label="Email"><Text value={f.email} onChange={(v) => ed.setField("email", v)} type="email" /></Field>
         <Field label="Address" span={2}><Text value={f.address} onChange={(v) => ed.setField("address", v)} /></Field>
+        <Field label="Legal address"><Text value={f.legal_address} onChange={(v) => ed.setField("legal_address", v)} /></Field>
+        <Field label="Actual address"><Text value={f.actual_address} onChange={(v) => ed.setField("actual_address", v)} /></Field>
+        <Field label="City" hint="Used as «г. ...» on documents when set.">
+          <Text value={f.city} onChange={(v) => ed.setField("city", v)} />
+        </Field>
+        <Field label="ОКЭД"><Text value={f.oked_code} onChange={(v) => ed.setField("oked_code", v)} /></Field>
         <Field label="Website"><Text value={f.website} onChange={(v) => ed.setField("website", v)} /></Field>
         <Field label="Director"><Text value={f.director_name} onChange={(v) => ed.setField("director_name", v)} /></Field>
+        <Field label="Director's basis" hint="Устав / доверенность №... от...">
+          <Text value={f.director_basis} onChange={(v) => ed.setField("director_basis", v)} />
+        </Field>
         <Field label="Accountant"><Text value={f.accountant_name} onChange={(v) => ed.setField("accountant_name", v)} /></Field>
+        <Field label="VAT status" span={2}>
+          <div className="flex items-center gap-4">
+            <Toggle label="Плательщик НДС" checked={!!f.vat_registered}
+              onChange={(v) => ed.setField("vat_registered", v)} />
+            <div className="flex-1">
+              <Text value={f.vat_certificate_number} onChange={(v) => ed.setField("vat_certificate_number", v)}
+                    placeholder="№ свидетельства" disabled={!f.vat_registered} />
+            </div>
+          </div>
+        </Field>
       </div>
 
       <h3 className="mt-6 mb-2 text-xs uppercase tracking-wider text-muted-foreground">Bank details</h3>
@@ -136,6 +155,10 @@ function CompanySection({ ctx }: { ctx: any }) {
           onChange={(v) => ed.setField("bank", { ...(f.bank ?? {}), bik: v })} /></Field>
         <Field label="Account"><Text value={f.bank?.account}
           onChange={(v) => ed.setField("bank", { ...(f.bank ?? {}), account: v })} /></Field>
+        <Field label="ИИК"><Text value={f.bank?.iik}
+          onChange={(v) => ed.setField("bank", { ...(f.bank ?? {}), iik: v })} /></Field>
+        <Field label="Кбе"><Text value={f.bank?.kbe}
+          onChange={(v) => ed.setField("bank", { ...(f.bank ?? {}), kbe: v })} /></Field>
       </div>
     </SectionShell>
   );

@@ -46,6 +46,16 @@ export function useSectionEditor<T extends Record<string, any>>(
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastInit = useRef<T | undefined>(initial);
+  // Mirror draft/dirty into refs so `flush` always reads the latest values
+  // no matter which render's closure ends up calling it. Without this, the
+  // unmount-flush effect below (empty deps, so its cleanup is frozen to the
+  // very first render's closure) would read mount-time dirty=false and
+  // silently drop the last edit if the user navigated away before the
+  // 800ms debounce timer fired.
+  const draftRef = useRef(draft);
+  const dirtyRef = useRef(dirty);
+  draftRef.current = draft;
+  dirtyRef.current = dirty;
 
   // Pull external updates only when not currently dirty (preserve user edits).
   useEffect(() => {
@@ -55,8 +65,8 @@ export function useSectionEditor<T extends Record<string, any>>(
 
   const flush = () => {
     if (tRef.current) clearTimeout(tRef.current);
-    if (!dirty) return;
-    patch.mutate(draft as any, {
+    if (!dirtyRef.current) return;
+    patch.mutate(draftRef.current as any, {
       onSuccess: () => { setDirty(false); setSavedAt(new Date()); },
     });
   };
