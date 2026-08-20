@@ -108,31 +108,48 @@ class GenerateDocumentArgs(BaseModel):
             "prefer salary for hr_order/employment_contract kinds."
         ),
     )
+    # Promoted out of extra_fields (like `salary` above) because they're
+    # each `required=True` in required_fields.DOCUMENT_SCHEMAS for the kind
+    # that uses them — a typed, explicitly-described top-level arg is
+    # extracted far more reliably by the model than a same-named key buried
+    # in a loosely-typed dict's free-text description.
+    employee_name: str | None = Field(
+        None, description="Full name (ФИО) of the employee/доверенное лицо — "
+                           "hr_order, employment_contract, trust_letter.",
+    )
+    employee_position: str | None = Field(
+        None, description="Job title/должность — hr_order, employment_contract, trust_letter.",
+    )
+    hire_date: str | None = Field(None, description="Дата приёма — hr_order, employment_contract.")
+    valid_until: str | None = Field(None, description="Дата окончания действия доверенности — trust_letter.")
+    service_description: str | None = Field(
+        None, description="Описание услуг — contract_services (what's being done, not who for).",
+    )
     extra_fields: dict[str, Any] | None = Field(
         None,
         description=(
             "Kind-specific fields not covered above, extracted from the user's "
             "request. Use exactly these key names (all optional, include only "
             "what the user actually gave you):\n"
-            "  trust_letter: employee_name, employee_position, employee_iin, "
-            "employee_id_doc, valid_until (date), from_name, from_bin (whose "
-            "goods to receive)\n"
+            "  trust_letter: employee_iin, employee_id_doc, from_name, from_bin "
+            "(whose goods to receive) (employee_name/employee_position/valid_until "
+            "are top-level args, not here)\n"
             "  contract_services / contract_supply: client_bin, client_address, "
-            "client_director_name, service_description, delivery_terms, "
+            "client_director_name, delivery_terms, "
             "delivery_address, delivery_date, payment_terms, start_date, "
-            "end_date, city\n"
+            "end_date, city (service_description is a top-level arg, not here)\n"
             "  act_reconciliation: client_bin, client_address, period_start, "
             "period_end, opening_balance (number), operations (list of "
             "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
             "never pre-computed running balances, the app computes those)\n"
-            "  hr_order: employee_name, employee_iin, employee_position, "
-            "employee_department, hire_date, probation_period (salary is a "
-            "top-level arg, not here)\n"
-            "  employment_contract: employee_name, employee_iin, employee_address, "
-            "employee_id_doc, employee_position, employee_department, "
+            "  hr_order: employee_iin, "
+            "employee_department, probation_period (employee_name/"
+            "employee_position/hire_date/salary are top-level args, not here)\n"
+            "  employment_contract: employee_iin, employee_address, "
+            "employee_id_doc, employee_department, "
             "work_start_date, contract_term, pay_dates, "
-            "work_schedule, probation_period, vacation_days, city (salary is "
-            "a top-level arg, not here)"
+            "work_schedule, probation_period, vacation_days, city (employee_name/"
+            "employee_position/salary are top-level args, not here)"
         ),
     )
 
@@ -202,6 +219,140 @@ def _merge_salary_into_intent(intent, args) -> None:
             intent.salary = float(legacy)
         except (TypeError, ValueError):
             pass
+
+
+_TYPED_HR_LEGAL_FIELDS = (
+    "employee_name", "employee_position", "hire_date", "valid_until", "service_description",
+)
+
+
+def _typed_fields_dict(args) -> dict[str, Any]:
+    """Merge extra_fields with the typed HR/legal args, typed-arg-wins —
+    same "parser/typed-arg wins" precedent as the salary fix, so a stray
+    same-named key the model put in extra_fields anyway never shadows the
+    reliable typed one."""
+    return {
+        **(args.extra_fields or {}),
+        **{k: getattr(args, k) for k in _TYPED_HR_LEGAL_FIELDS if getattr(args, k, None) is not None},
+    }
+
+
+_COUNTERPARTY_ATTR_TO_KEY = {"bin": "client_bin", "address": "client_address", "phone": "client_phone"}
+_EMPLOYEE_ATTR_TO_KEY = {"iin": "employee_iin", "position": "employee_position", "address": "employee_address"}
+
+
+async def _resolve_reference_data(
+    session: AsyncSession, company_id: str, kind: str, intent, fields_dict: dict[str, Any] | None,
+    *, persist: bool,
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Autofill counterparty/employee fields from the reference-data tables
+    and report what's genuinely missing — driven by DOCUMENT_SCHEMAS instead
+    of the old hardcoded "always ask for client_name/total on every kind"
+    check, which is why an hr_order used to show a "Клиент / контрагент"
+    prompt that made no sense for it.
+
+    ``fields_dict`` is the caller's merge of its typed args (employee_name,
+    hire_date, ...) over extra_fields — see the two call sites, which both
+    build it the same way so a typed arg always wins over a same-named key
+    the model put in extra_fields instead (mirrors the salary fix's
+    "parser/typed-arg wins" precedent).
+
+    ``persist=False`` (propose_document — a declared read-only preview, "NO
+    document is created") only peeks at the best fuzzy match via
+    matcher.best_match — it never creates a Client/Employee row, so an
+    abandoned or rejected proposal can't leave a stub reference-data record
+    behind. ``persist=True`` (generate_document, called only after the user
+    confirmed) does the real find-or-create via matcher.resolve_*, since
+    that path already commits a real Document row.
+    """
+    from app.db.models import Client, Employee
+    from app.services.documents.generation.required_fields import fields_for
+    from app.services.reference_data.matcher import (
+        COUNTERPARTY_CORE_FIELDS, EMPLOYEE_CORE_FIELDS, best_match,
+        resolve_counterparty, resolve_employee,
+    )
+
+    fields = fields_for(kind)
+    fields_dict = fields_dict or {}
+    autofilled: dict[str, Any] = {}
+    missing: list[dict[str, str]] = []
+
+    async def _resolve(name: str, *, model, name_attr: str, persisting_resolver, core_fields):
+        if persist:
+            resolved = await persisting_resolver(session, company_id, name)
+            return resolved.record, resolved.missing_fields
+        record, _score = await best_match(session, model, company_id, name, name_attr)
+        if not record:
+            return None, list(core_fields)
+        return record, [a for a in core_fields if not getattr(record, a, None)]
+
+    # Counterparty — only for kinds whose `client_name` field is itself
+    # source="counterparty" (i.e. genuinely a lookup, not something being
+    # established by this document). trust_letter's optional from_name/
+    # from_bin aren't actively resolved here — out of scope for this pass.
+    name_spec = next((f for f in fields if f.key == "client_name" and f.source == "counterparty"), None)
+    if name_spec:
+        name = intent.client_name
+        if name:
+            record, missing_attrs = await _resolve(
+                name, model=Client, name_attr="name",
+                persisting_resolver=resolve_counterparty, core_fields=COUNTERPARTY_CORE_FIELDS,
+            )
+            if record:
+                autofilled.update(client_name=record.name, client_bin=record.bin,
+                                   client_address=record.address, client_phone=record.phone)
+                for attr in missing_attrs:
+                    key = _COUNTERPARTY_ATTR_TO_KEY.get(attr)
+                    spec = next((f for f in fields if f.key == key), None)
+                    if key and spec:
+                        missing.append({
+                            "field": key, "label": spec.label, "reason": "incomplete_reference_data",
+                            "hint": f"Данные контрагента «{record.name}» неполные — дополнить?",
+                        })
+        elif name_spec.required:
+            missing.append({"field": "client_name", "label": name_spec.label, "reason": "ask_user",
+                             "hint": name_spec.ask_hint or ""})
+
+    # Employee lookup — only kinds whose employee_name is source="employee"
+    # (trust_letter: referencing an existing, already-working employee).
+    # hr_order/employment_contract's employee_name is source="user_input"
+    # instead (this document is what CREATES/updates that person's record),
+    # so it's covered by the generic required-user_input loop below, not
+    # resolved against the table here.
+    employee_spec = next((f for f in fields if f.key == "employee_name" and f.source == "employee"), None)
+    if employee_spec:
+        name = fields_dict.get("employee_name")
+        if name:
+            record, missing_attrs = await _resolve(
+                name, model=Employee, name_attr="full_name",
+                persisting_resolver=resolve_employee, core_fields=EMPLOYEE_CORE_FIELDS,
+            )
+            if record:
+                autofilled.update(employee_name=record.full_name, employee_iin=record.iin,
+                                   employee_position=record.position, employee_address=record.address)
+                for attr in missing_attrs:
+                    key = _EMPLOYEE_ATTR_TO_KEY.get(attr)
+                    spec = next((f for f in fields if f.key == key), None)
+                    if key and spec:
+                        missing.append({
+                            "field": key, "label": spec.label, "reason": "incomplete_reference_data",
+                            "hint": f"Данные «{record.full_name}» неполные — дополнить?",
+                        })
+        elif employee_spec.required:
+            missing.append({"field": "employee_name", "label": employee_spec.label, "reason": "ask_user",
+                             "hint": employee_spec.ask_hint or ""})
+
+    # Every other required user_input field — the system genuinely can't
+    # know these (deal-specific dates/terms/amounts), so just check whether
+    # the operator already supplied it (directly, or via the autofill above).
+    combined = {**autofilled, **fields_dict}
+    for f in fields:
+        if f.source != "user_input" or not f.required or f.key in autofilled:
+            continue
+        if not combined.get(f.key):
+            missing.append({"field": f.key, "label": f.label, "reason": "ask_user", "hint": f.ask_hint or ""})
+
+    return autofilled, missing
 
 
 def _serialize_items(items: list[DocumentLineItem] | None) -> list[dict[str, Any]] | None:
@@ -620,31 +771,43 @@ class ProposeDocumentArgs(BaseModel):
             "prefer salary for hr_order/employment_contract kinds."
         ),
     )
+    employee_name: str | None = Field(
+        None, description="Full name (ФИО) of the employee/доверенное лицо — "
+                           "hr_order, employment_contract, trust_letter.",
+    )
+    employee_position: str | None = Field(
+        None, description="Job title/должность — hr_order, employment_contract, trust_letter.",
+    )
+    hire_date: str | None = Field(None, description="Дата приёма — hr_order, employment_contract.")
+    valid_until: str | None = Field(None, description="Дата окончания действия доверенности — trust_letter.")
+    service_description: str | None = Field(
+        None, description="Описание услуг — contract_services (what's being done, not who for).",
+    )
     extra_fields: dict[str, Any] | None = Field(
         None,
         description=(
             "Kind-specific fields not covered above, extracted from the user's "
             "request. Use exactly these key names (all optional, include only "
             "what the user actually gave you):\n"
-            "  trust_letter: employee_name, employee_position, employee_iin, "
-            "employee_id_doc, valid_until (date), from_name, from_bin (whose "
-            "goods to receive)\n"
+            "  trust_letter: employee_iin, employee_id_doc, from_name, from_bin "
+            "(whose goods to receive) (employee_name/employee_position/valid_until "
+            "are top-level args, not here)\n"
             "  contract_services / contract_supply: client_bin, client_address, "
-            "client_director_name, service_description, delivery_terms, "
+            "client_director_name, delivery_terms, "
             "delivery_address, delivery_date, payment_terms, start_date, "
-            "end_date, city\n"
+            "end_date, city (service_description is a top-level arg, not here)\n"
             "  act_reconciliation: client_bin, client_address, period_start, "
             "period_end, opening_balance (number), operations (list of "
             "{date, doc_ref, debit, credit} — debit/credit as plain numbers, "
             "never pre-computed running balances, the app computes those)\n"
-            "  hr_order: employee_name, employee_iin, employee_position, "
-            "employee_department, hire_date, probation_period (salary is a "
-            "top-level arg, not here)\n"
-            "  employment_contract: employee_name, employee_iin, employee_address, "
-            "employee_id_doc, employee_position, employee_department, "
+            "  hr_order: employee_iin, "
+            "employee_department, probation_period (employee_name/"
+            "employee_position/hire_date/salary are top-level args, not here)\n"
+            "  employment_contract: employee_iin, employee_address, "
+            "employee_id_doc, employee_department, "
             "work_start_date, contract_term, pay_dates, "
-            "work_schedule, probation_period, vacation_days, city (salary is "
-            "a top-level arg, not here)"
+            "work_schedule, probation_period, vacation_days, city (employee_name/"
+            "employee_position/salary are top-level args, not here)"
         ),
     )
 
@@ -669,6 +832,7 @@ class ProposeDocumentTool(Tool):
         from app.services.documents.generation.context_builder import build_canonical_context
         from app.services.documents.generation.intent import parse_intent
         from app.services.documents.generation.pipeline import SUPPORTED_KINDS
+        from app.services.documents.generation.required_fields import human_kind_for
         from app.services.context.service import load_context
         from app.services.templates.matcher import match_best
         from app.services.templates.reliability import reliability_bonus_map
@@ -727,12 +891,23 @@ class ProposeDocumentTool(Tool):
         suggested = _tpl_dict(match.template, match.score) if match.template else None
         alternatives = [_tpl_dict(t, s) for t, s in (match.alternatives or [])[:3]]
 
-        # 4) Build canonical context to show preview values (no render).
+        # 4) Autofill counterparty/employee data from the reference-data
+        #    tables (read-only peek — this tool never persists a new
+        #    record, see _resolve_reference_data's docstring) and compute
+        #    what's genuinely missing, driven by the unified schema instead
+        #    of a hardcoded client_name/total check that fired on every
+        #    kind regardless of whether it applies.
+        fields_dict = _typed_fields_dict(args)
+        autofilled, missing = await _resolve_reference_data(
+            session, company_id, kind, intent, fields_dict, persist=False,
+        )
+
         # `salary` is a typed top-level arg (not extra_fields) as of the
-        # salary-loss fix — the "salary" key here comes last in the dict
-        # literal, so it wins even if the LLM ignored the schema and put a
-        # "salary" key inside extra_fields too.
-        overrides = {**(args.extra_fields or {}), "salary": intent.salary}
+        # salary-loss fix — comes after fields_dict so it wins even if the
+        # LLM ignored the schema and put a "salary" key inside extra_fields
+        # too. `autofilled` comes first so explicit user/LLM-supplied values
+        # (which might be a correction) win over the stored record.
+        overrides = {**autofilled, **fields_dict, "salary": intent.salary}
         business = await load_context(session, company_id)
         canonical = build_canonical_context(
             business=business, intent=intent,
@@ -740,32 +915,8 @@ class ProposeDocumentTool(Tool):
             overrides=overrides,
         )
 
-        # 5) Identify missing-but-recommended fields the operator should fill.
-        missing: list[dict[str, str]] = []
-        if not intent.client_name:
-            missing.append({"field": "client_name",
-                             "label": "Клиент / контрагент",
-                             "hint": "Например: TOO Sigma"})
-        if intent.total is None or intent.total == 0:
-            missing.append({"field": "total",
-                             "label": "Сумма",
-                             "hint": "Например: 450000"})
-
         items_preview = canonical.get("items") or []
-
-        human_kind = {
-            "invoice": "Счёт на оплату",
-            "act": "Акт выполненных работ",
-            "nakladnaya": "Товарная накладная",
-            "contract": "Договор",
-            "trust_letter": "Доверенность",
-            "contract_services": "Договор оказания услуг",
-            "contract_supply": "Договор поставки",
-            "act_reconciliation": "Акт сверки взаиморасчётов",
-            "hr_order": "Приказ о приёме на работу",
-            "employment_contract": "Трудовой договор",
-            "arbitrary_template": "Документ",
-        }.get(kind, "Документ")
+        human_kind = human_kind_for(kind)
 
         # Persist a PendingProposal so the web flow has the same gateable
         # state as Telegram. Without this row, GenerateDocumentTool's
@@ -983,6 +1134,15 @@ class GenerateDocumentTool(Tool):
                   parsed_from_prompt=parsed_from_prompt,
                   llm_items_supplied=bool(args.items))
 
+        # Real find-or-create this time (persist=True) — unlike the preview
+        # tool, this path already commits a Document row, so persisting the
+        # matched/newly-created Client or Employee alongside it is correct,
+        # not a side effect of a preview that might get abandoned.
+        fields_dict = _typed_fields_dict(args)
+        autofilled, _missing = await _resolve_reference_data(
+            session, company_id, kind, intent, fields_dict, persist=True,
+        )
+
         overrides = {
             "client_name":      intent.client_name,
             "total":            intent.total,
@@ -991,7 +1151,8 @@ class GenerateDocumentTool(Tool):
             "qty":              intent.qty if not intent.parsed_items else None,
             "vat_percent":      intent.vat_percent,
             "notes":            args.notes,
-            **(args.extra_fields or {}),
+            **autofilled,
+            **fields_dict,
             # `salary` last and unconditional: it's a typed top-level arg now
             # (not part of extra_fields), so intent.salary — already the
             # parser-wins result of _merge_salary_into_intent — must win even
