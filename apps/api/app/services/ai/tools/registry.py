@@ -226,6 +226,35 @@ _TYPED_HR_LEGAL_FIELDS = (
 )
 
 
+def _kind_field_keys(kind: str) -> set[str]:
+    from app.services.documents.generation.required_fields import fields_for
+    return {f.key for f in fields_for(kind)}
+
+
+def _reset_inapplicable_intent_fields(intent, kind: str, field_keys: set[str]) -> None:
+    """Kill intent.client_name/intent.total when the kind's schema doesn't
+    actually have that field, regardless of where the value came from
+    (regex parse, LLM arg, or a merge helper).
+
+    Without this, an hr_order/employment_contract prompt like "приказ для
+    Асанова Асана" trips the generic connector-based _CLIENT_RE in
+    intent.py (anchored on "для"/"for"/"клиент", not on kind) and sets
+    intent.client_name to the EMPLOYEE's name — which then bleeds into the
+    proposal card's "Клиент" row, the "на сумму" message clause, and
+    canonical.client_name, all for a kind that has no client at all. Same
+    story for intent.total: the generic _AMOUNT_RE can match a stray
+    number in an HR prompt and get treated as a commercial total even
+    though context_builder.py already correctly zeroes the computed total
+    for these kinds — the raw intent.total was still leaking into the
+    proposal card/message before this reset existed.
+    """
+    from app.services.documents.generation.required_fields import KINDS_WITH_TOTAL_ITEMS_CHECK
+    if "client_name" not in field_keys:
+        intent.client_name = None
+    if kind not in KINDS_WITH_TOTAL_ITEMS_CHECK:
+        intent.total = None
+
+
 def _typed_fields_dict(args) -> dict[str, Any]:
     """Merge extra_fields with the typed HR/legal args, typed-arg-wins —
     same "parser/typed-arg wins" precedent as the salary fix, so a stray
@@ -313,13 +342,21 @@ async def _resolve_reference_data(
             missing.append({"field": "client_name", "label": name_spec.label, "reason": "ask_user",
                              "hint": name_spec.ask_hint or ""})
 
-    # Employee lookup — only kinds whose employee_name is source="employee"
-    # (trust_letter: referencing an existing, already-working employee).
-    # hr_order/employment_contract's employee_name is source="user_input"
-    # instead (this document is what CREATES/updates that person's record),
-    # so it's covered by the generic required-user_input loop below, not
-    # resolved against the table here.
-    employee_spec = next((f for f in fields if f.key == "employee_name" and f.source == "employee"), None)
+    # Employee lookup — any kind whose schema has an employee_name field at
+    # all, regardless of its declared source. Originally this only fired
+    # for source="employee" (trust_letter), on the theory that hr_order/
+    # employment_contract only ever CREATE a new employee record so there
+    # was nothing to look up. In practice hr_order/employment_contract just
+    # as often reference an ALREADY-EXISTING employee (promotion, renewal,
+    # a second document for someone already on file) — matching against
+    # the table lets their position/IIN/address autofill from that record
+    # instead of being asked again, while a genuinely new name still falls
+    # through to the generic required-user_input loop below unmatched (and,
+    # for persist=True, resolve_employee's find-or-create makes the new
+    # record — which is exactly what "creates/updates" was always meant to
+    # cover, just via the same code path as the lookup instead of a
+    # separate one).
+    employee_spec = next((f for f in fields if f.key == "employee_name"), None)
     if employee_spec:
         name = fields_dict.get("employee_name")
         if name:
@@ -854,6 +891,8 @@ class ProposeDocumentTool(Tool):
         if args.vat_percent is not None: intent.vat_percent = float(args.vat_percent)
         _merge_items_into_intent(intent, args)
         _merge_salary_into_intent(intent, args)
+        field_keys = _kind_field_keys(kind)
+        _reset_inapplicable_intent_fields(intent, kind, field_keys)
         log.info("propose.intent_resolved", kind=kind,
                   client=intent.client_name,
                   items_count=len(intent.parsed_items),
@@ -943,6 +982,15 @@ class ProposeDocumentTool(Tool):
                     "items":        list(intent.parsed_items or []),
                     "notes":        args.notes,
                     "prompt":       args.prompt,
+                    "salary":       intent.salary,
+                    # Everything resolved for THIS proposal (typed HR/legal
+                    # args + counterparty/employee autofill) — carried
+                    # forward so a confirmation turn that doesn't re-state
+                    # employee_name/hire_date/etc. (the LLM has no reason to
+                    # repeat what it thinks is already agreed) doesn't lose
+                    # it. See GenerateDocumentTool.run's stored_payload merge.
+                    **autofilled,
+                    **fields_dict,
                 },
                 template_id=(match.template.id if match.template else None),
             )
@@ -962,6 +1010,13 @@ class ProposeDocumentTool(Tool):
                 "client_name":  intent.client_name,
                 "total":        intent.total,
                 "salary":       intent.salary,
+                # Surfaced so the proposal card can show "Работник" the same
+                # way it shows "Клиент" — previously this only reached the
+                # card by accident, via intent.client_name getting
+                # mis-populated with the employee's name (see
+                # _reset_inapplicable_intent_fields).
+                "employee_name":     overrides.get("employee_name"),
+                "employee_position": overrides.get("employee_position"),
                 "currency":     intent.currency,
                 "vat_percent":  intent.vat_percent,
                 "confidence":   round(intent.confidence, 2),
@@ -1126,6 +1181,8 @@ class GenerateDocumentTool(Tool):
         if args.vat_percent is not None: intent.vat_percent = float(args.vat_percent)
         _merge_items_into_intent(intent, args)
         _merge_salary_into_intent(intent, args)
+        field_keys = _kind_field_keys(kind)
+        _reset_inapplicable_intent_fields(intent, kind, field_keys)
         log.info("generate.intent_resolved", kind=kind,
                   client=intent.client_name,
                   items_count=len(intent.parsed_items),
@@ -1143,7 +1200,7 @@ class GenerateDocumentTool(Tool):
             session, company_id, kind, intent, fields_dict, persist=True,
         )
 
-        overrides = {
+        fresh_overrides = {
             "client_name":      intent.client_name,
             "total":            intent.total,
             "currency":         intent.currency,
@@ -1162,7 +1219,21 @@ class GenerateDocumentTool(Tool):
             # `parsed_items` is the canonical list of dicts after merge.
             "items":            list(intent.parsed_items) if intent.parsed_items else None,
         }
-        overrides = {k: v for k, v in overrides.items() if v not in (None, "")}
+        fresh_overrides = {k: v for k, v in fresh_overrides.items() if v not in (None, "")}
+
+        # Layer this turn's fresh data OVER whatever the original proposal
+        # already established (stored in PendingProposal.payload by
+        # ProposeDocumentTool.run). Without this, a confirmation turn whose
+        # prompt is just "да"/"подтверждаю" re-parses to an almost-empty
+        # intent, and any field the LLM doesn't bother re-stating in this
+        # call's args (employee_name being the concrete case that broke —
+        # "Работник is empty" at the quality gate despite being on the
+        # proposal card) is silently lost even though it was captured
+        # correctly one turn earlier. stored_payload is the low-priority
+        # base; fresh_overrides is already filtered to only real values, so
+        # it only overrides keys it actually has something for.
+        stored_payload = (claimed_proposal.payload or {}) if claimed_proposal else {}
+        overrides = {**stored_payload, **fresh_overrides}
 
         pipeline = GenerationPipeline()
         try:
@@ -1223,11 +1294,24 @@ class GenerateDocumentTool(Tool):
 
         # Operational card — the UI renders this directly; do not concatenate
         # all signal into the message field.
+        # Kind-aware subtitle — was unconditionally "Клиент: {args.client_name}",
+        # which mislabeled the employee on hr_order/employment_contract (and
+        # only ever looked right by coincidence when args.client_name/
+        # intent.client_name got mis-populated with the employee's name in
+        # the first place — see _reset_inapplicable_intent_fields).
+        if "client_name" in field_keys and args.client_name:
+            subtitle = f"Клиент: {args.client_name}"
+        elif "employee_name" in field_keys:
+            emp_name = overrides.get("employee_name")
+            subtitle = f"Работник: {emp_name}" if emp_name else None
+        else:
+            subtitle = None
+
         card = {
             "type": "generated_document",
             "kind": result.kind,
             "title": f"{human_kind} {result.document_number}",
-            "subtitle": (f"Клиент: {args.client_name}" if args.client_name else None),
+            "subtitle": subtitle,
             "template": {
                 "id":                result.template_id,
                 "name":              result.template_name or "Built-in HTML fallback",

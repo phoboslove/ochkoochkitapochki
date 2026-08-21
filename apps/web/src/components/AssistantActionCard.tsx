@@ -420,6 +420,17 @@ function DocumentProposalCard({ tc }: { tc: ToolCall }) {
               <dd className="font-medium">{intent.client_name}</dd>
             </>
           )}
+          {intent.employee_name && (
+            <>
+              <dt className="text-muted-foreground">Работник</dt>
+              <dd className="font-medium">
+                {intent.employee_name}
+                {intent.employee_position && (
+                  <span className="text-muted-foreground"> — {intent.employee_position}</span>
+                )}
+              </dd>
+            </>
+          )}
           {intent.total != null && (
             <>
               <dt className="text-muted-foreground">Сумма</dt>

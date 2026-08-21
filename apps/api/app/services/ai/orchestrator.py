@@ -48,9 +48,14 @@ BASE_SYSTEM_PROMPT = (
     "  • a correction («исправь сумму на 70000», «клиент другой — Иван») means: amend\n"
     "    the prior proposal — call `propose_document` again with the same kind plus\n"
     "    the user's updated value(s), merging in fields you already know.\n"
-    "  • a free-form fragment («Никита», «60000») after you asked a follow-up\n"
-    "    question (e.g. «Для какого клиента?») means: it answers your question.\n"
-    "    Merge it into the in-progress proposal context and continue.\n"
+    "  • a free-form fragment («Никита», «60000», «менеджер по продажам») after you\n"
+    "    asked a follow-up question (e.g. «Для какого клиента?», «Какая должность?»)\n"
+    "    means: it answers your question. Call `propose_document` AGAIN with the same\n"
+    "    kind plus every field you already know (from the [ctx: ...] marker) PLUS the\n"
+    "    new answer — do NOT just reply in text without re-calling the tool. The UI\n"
+    "    card (with working confirm/cancel buttons) only re-renders when you call the\n"
+    "    tool again; replying in plain text after a clarification leaves the user with\n"
+    "    a stale or missing card and nothing to click.\n"
     "  • a clearly new request («покажи счета», «у тебя есть шаблоны?») cancels the\n"
     "    pending proposal flow — answer the new question; do NOT confirm or amend.\n\n"
     "## Document generation — TWO-STEP confirmation flow\n"
@@ -310,7 +315,9 @@ class AIOrchestrator:
                     # LLM can tie "да" / "исправь сумму" to a concrete prior
                     # proposal. Keep it compact — this rides inside content.
                     fields = []
-                    for k in ("kind", "client_name", "total", "currency",
+                    for k in ("kind", "client_name", "total", "salary", "currency",
+                              "employee_name", "employee_position", "hire_date",
+                              "valid_until", "service_description",
                               "proposal_id", "document_id", "number"):
                         v = args.get(k) if k in args else res.get(k)
                         if v not in (None, "", []):
