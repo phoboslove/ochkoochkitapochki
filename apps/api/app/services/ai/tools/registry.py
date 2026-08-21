@@ -367,6 +367,19 @@ async def _resolve_reference_data(
             if record:
                 autofilled.update(employee_name=record.full_name, employee_iin=record.iin,
                                    employee_position=record.position, employee_address=record.address)
+                # The template placeholder is a single {{employee_id_doc}}
+                # string, but the Employee table stores it as three columns
+                # — compose them the same way a user would type it inline,
+                # since that's the shape trust_letter/employment_contract's
+                # extra_fields.employee_id_doc always had.
+                id_doc_bits = [
+                    (f"№ {record.id_doc_number}" if record.id_doc_number else None),
+                    (f"выдан {record.id_doc_issued_by}" if record.id_doc_issued_by else None),
+                    (f"от {record.id_doc_date}" if record.id_doc_date else None),
+                ]
+                id_doc_text = " ".join(b for b in id_doc_bits if b)
+                if id_doc_text:
+                    autofilled["employee_id_doc"] = id_doc_text
                 for attr in missing_attrs:
                     key = _EMPLOYEE_ATTR_TO_KEY.get(attr)
                     spec = next((f for f in fields if f.key == key), None)
@@ -382,7 +395,14 @@ async def _resolve_reference_data(
     # Every other required user_input field — the system genuinely can't
     # know these (deal-specific dates/terms/amounts), so just check whether
     # the operator already supplied it (directly, or via the autofill above).
-    combined = {**autofilled, **fields_dict}
+    # `autofilled` wins ties (see the overrides-construction comment at the
+    # call sites for why). `salary` is folded in explicitly because it's a
+    # typed top-level arg that never goes through `fields_dict` (it's
+    # resolved separately via intent.salary / _merge_salary_into_intent) —
+    # without this the missing-fields check was reading a different source
+    # than the one the proposal card displays, so a correctly-parsed salary
+    # still showed up under "Не хватает данных".
+    combined = {**fields_dict, **autofilled, "salary": intent.salary}
     for f in fields:
         if f.source != "user_input" or not f.required or f.key in autofilled:
             continue
@@ -941,12 +961,18 @@ class ProposeDocumentTool(Tool):
             session, company_id, kind, intent, fields_dict, persist=False,
         )
 
-        # `salary` is a typed top-level arg (not extra_fields) as of the
-        # salary-loss fix — comes after fields_dict so it wins even if the
-        # LLM ignored the schema and put a "salary" key inside extra_fields
-        # too. `autofilled` comes first so explicit user/LLM-supplied values
-        # (which might be a correction) win over the stored record.
-        overrides = {**autofilled, **fields_dict, "salary": intent.salary}
+        # `autofilled` wins over `fields_dict` for any key both define
+        # (employee_name/position, client_name — the reference-data record's
+        # full "Асанов Асан Асанович"/"ТОО Ромашка" beats whatever partial
+        # name the operator typed to find it in the first place: the chat
+        # text is a search query, not an authoritative field value once a
+        # match is found). `fields_dict` still wins for everything autofill
+        # never touches (salary, hire_date, department, ...), since those
+        # keys simply don't exist in `autofilled`. `salary` is added last,
+        # unconditional, since it's a typed top-level arg that bypasses
+        # fields_dict entirely (resolved via intent.salary instead) and must
+        # win even if the LLM also stuffed a "salary" key into extra_fields.
+        overrides = {**fields_dict, **autofilled, "salary": intent.salary}
         business = await load_context(session, company_id)
         canonical = build_canonical_context(
             business=business, intent=intent,
@@ -989,8 +1015,13 @@ class ProposeDocumentTool(Tool):
                     # employee_name/hire_date/etc. (the LLM has no reason to
                     # repeat what it thinks is already agreed) doesn't lose
                     # it. See GenerateDocumentTool.run's stored_payload merge.
-                    **autofilled,
+                    # `autofilled` wins over `fields_dict` here too — same
+                    # reasoning as the `overrides` dict below: once matched,
+                    # the reference-data record's full name/IIN/address are
+                    # authoritative, not whatever partial text the operator
+                    # typed to find it.
                     **fields_dict,
+                    **autofilled,
                 },
                 template_id=(match.template.id if match.template else None),
             )
@@ -1208,8 +1239,13 @@ class GenerateDocumentTool(Tool):
             "qty":              intent.qty if not intent.parsed_items else None,
             "vat_percent":      intent.vat_percent,
             "notes":            args.notes,
-            **autofilled,
+            # `autofilled` wins over `fields_dict` — see the matching
+            # comment in ProposeDocumentTool.run's overrides construction;
+            # same reasoning, same fix (the operator's chat text is a search
+            # query for the reference-data record, not an authoritative
+            # value once that record is matched).
             **fields_dict,
+            **autofilled,
             # `salary` last and unconditional: it's a typed top-level arg now
             # (not part of extra_fields), so intent.salary — already the
             # parser-wins result of _merge_salary_into_intent — must win even
