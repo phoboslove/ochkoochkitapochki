@@ -97,6 +97,30 @@ docker ps --format 'table {{.Names}}\t{{.Ports}}'
 Only `nginx` (80/443) should have a `0.0.0.0:`-bound port. `api`/`web`/`minio` should
 show container-internal ports only (e.g. `8000/tcp`, no `0.0.0.0:8000->8000/tcp`).
 
+## Before adding a migration
+
+**Revision id must be under 32 characters.** `alembic_version.version_num`
+is `varchar(32)` and nothing widens it automatically. A longer id doesn't
+fail at migration-write time or even during most of the migration — it
+fails on the very last step (the `UPDATE alembic_version SET version_num=...`
+that stamps the new version), after all the DDL already ran inside the same
+transaction. Postgres DDL is transactional and this migration runs inside
+`context.begin_transaction()` (`alembic/env.py`), so that failure rolls
+back the whole migration — the DB is left cleanly on the old version, not
+partially migrated, which is good, but it still means: the deploy fails,
+and — because the api container's own entrypoint runs `alembic upgrade
+head` before starting uvicorn (see "Docker production" above) — every
+subsequent container restart re-attempts and re-fails the same migration,
+which reads as an ordinary crash-loop, not an obviously migration-shaped
+error, unless you check the logs.
+
+Check before naming a new revision:
+```bash
+python -c "print(len('0007_your_new_revision_id'))"
+```
+Keep it well under 32 — short is fine, the migration's docstring/filename
+carries the descriptive name; the `revision = "..."` string is just an id.
+
 ## Backups
 
 Before any migration, snapshot the database:
