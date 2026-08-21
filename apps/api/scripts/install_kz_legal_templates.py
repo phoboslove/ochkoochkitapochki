@@ -265,9 +265,19 @@ def _totals_block(doc, *, with_vat: bool = True) -> None:
 
 
 def _signatures_block(doc, pairs: list[tuple[str, str]]) -> None:
-    """``pairs`` = [(role_label, signer_placeholder_or_blank), ...] — 2 or 3 columns."""
+    """``pairs`` = [(role_label, signer_placeholder_or_blank), ...] — 2 or 3 columns.
+
+    Single-row table — the signature line's own space_before already gives
+    the visual gap under the role label, so a second, permanently-blank row
+    isn't needed for spacing. (It used to be here purely for whitespace and
+    had no other purpose, but quality.py's generic post-render table scanner
+    can't tell "genuinely blank by design" apart from "leftover unconsumed
+    {%tr%} repeating-row" — a real signal on tables that DO use {%tr%} — so
+    it flagged this static row as "Table N contains an empty row" on every
+    hr_order/employment_contract despite there being no data-loss.)
+    """
     _para(doc, "", space_after=16)
-    t = doc.add_table(rows=2, cols=len(pairs))
+    t = doc.add_table(rows=1, cols=len(pairs))
     t.autofit = False
     width = Cm(17 / len(pairs))
     for idx, (role, signer_field) in enumerate(pairs):
@@ -282,8 +292,6 @@ def _signatures_block(doc, pairs: list[tuple[str, str]]) -> None:
                               ("{{" + signer_field + "}}" if signer_field else "________________"))
         r.font.size = Pt(10)
         sig_line.add_run("\nм.п.").italic = True
-    for cell in t.rows[1].cells:
-        cell.text = ""
 
 
 # ── Templates ──────────────────────────────────────────────────────────────
